@@ -1,7 +1,7 @@
 import type { Object3D } from 'three';
 import type { ViewZone } from './coords';
 
-export type PickKind = 'animal' | 'visitor' | 'bowl' | 'poop' | 'find';
+export type PickKind = 'animal' | 'visitor' | 'bowl' | 'poop' | 'find' | 'item';
 
 /** Something in the world that can be tapped. */
 export interface Pickable {

@@ -136,6 +136,26 @@ export class CameraRig {
     this.apply();
   }
 
+  /** The default view (a copy). */
+  get homeView(): ViewState {
+    return cloneView(this.home);
+  }
+
+  /** Glides to a view (animated unless `instant`), within the limits. */
+  goTo(view: ViewState, now: number, instant = false): void {
+    const to = cloneView(view);
+    to.polar = MathUtils.clamp(to.polar, CAMERA_LIMITS.minPolar, CAMERA_LIMITS.maxPolar);
+    to.zoom = MathUtils.clamp(to.zoom, CAMERA_LIMITS.minZoom, CAMERA_LIMITS.maxZoom);
+    to.azimuth = this.view.azimuth + wrapAngle(to.azimuth - this.view.azimuth);
+    if (instant) {
+      this.tween = null;
+      this.view = to;
+      this.apply();
+      return;
+    }
+    this.tween = { from: cloneView(this.view), to, start: now };
+  }
+
   /** Back to the default view (animated unless `instant`). */
   reset(now: number, instant = false): void {
     const to = cloneView(this.home);
@@ -168,7 +188,7 @@ export class CameraRig {
     };
     if (t >= 1) {
       this.tween = null;
-      this.view = cloneView(this.home);
+      this.view = cloneView(to);
     }
     this.apply();
     return this.tween !== null;

@@ -79,6 +79,7 @@ export class Care {
   private initialized = false;
   private now = 0;
   private reducedMotion = false;
+  private decorating = false;
 
   constructor(
     private readonly session: GameSession,
@@ -142,8 +143,15 @@ export class Care {
       if (!p.leaving) yield { kind: 'poop', id, zone: p.zone, object: p.root, height: p.height };
     }
     for (const [id, f] of this.finds) {
-      if (!f.leaving) yield { kind: 'find', id, zone: 'yard', object: f.root, height: f.height };
+      if (!f.leaving && !this.decorating)
+        yield { kind: 'find', id, zone: 'yard', object: f.root, height: f.height };
     }
+  }
+
+  /** Decorate mode: finds hide (and can't be tapped), like the original. */
+  setDecorating(on: boolean): void {
+    this.decorating = on;
+    for (const f of this.finds.values()) f.root.visible = !on;
   }
 
   /** A tap on a bowl, poop or find (DESIGN 8.2, 8.3). */
@@ -294,6 +302,7 @@ export class Care {
       root.add(model.group, shadow, tapVolume(pickKey('find', find.id), FIND_REACH, 0.9));
       const g = worldToGround(zoneToWorld('yard', find.position));
       root.position.set(g.x, 0, g.z);
+      root.visible = !this.decorating;
       this.zones.yard.add(root);
       const thing: FindThing = {
         root,

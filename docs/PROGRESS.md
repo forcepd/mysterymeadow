@@ -1583,3 +1583,78 @@ With reduced motion, everything stays still and "achoo!" and "z z" stay put.
   - The e2e test missed it because its poop had no animal nearby.
 - **Fix:** when a tap lands on several tap areas at once, the one whose on-screen middle is nearest the finger wins. A tap on the poop cleans it, and a tap on the animal's body still opens its card. A find's middle is now the floating find itself, not the ground under it.
 - **New e2e test:** two poops right under an animal. Tapping one cleans it, with no card, and tapping the animal opens its card, with the other poop still there.
+
+## Phase 3D-4: House interior and Decorate mode (built 2026-09-30)
+
+### What was built
+
+**The room (`src/world3d/house/Room.ts`)**: a cutaway dollhouse room replaces the 3D-0 placeholder.
+
+- **Surfaces:** the floor and walls wear the chosen flooring and wallpaper. Patterns are drawn to small textures after the original's look:
+  - Walls: soft cream stripes, mint stripes, berry hearts, sky and clouds.
+  - Floors: honey wood boards, checker tiles, speckled carpet.
+- **Walls:** a full-height back wall and two low side walls, with white baseboards, a top rail and corner posts. The room sits on a wooden slab over the original's warm brown frame.
+- **Cutaway:** the walls are one-sided, facing into the room. When you orbit outside a wall, it disappears (only its top rail stays), so it never blocks the view in. Wall art hides too when the camera is behind the back wall.
+- **The doormat** is the original's green one, with "🌳 Outside" on it.
+
+**Items in 3D (`src/world3d/items/`)**
+
+- **Every placeable item** has its own 3D recipe, following the original's drawings (`art/itemSvg.ts`):
+  - **All 10 yard lures:** carrot patch, bird bath (with a little bird), toy basket, flower garden, pond with stones and a lily pad, bamboo, eucalyptus tree, warm rock, rainbow fountain, and moon lantern.
+  - **All 15 furniture pieces:** armchair, sofa, little table, picnic table, cartoon TV, sunshine picture, paw poster, round rug, rainbow rug, glow lamp, fairy lights, potted plant, sunflower pot, bookshelf full of books, and toy shelf with a teddy.
+  - **The 3 pet beds:** basic, fluffy, and royal with a gold rim and crown.
+- **Sizing (`placement3d.ts`):**
+  - Each model fills its footprint and is turned by its rotation. The model swaps back to its own width and depth at 90° and 270°.
+  - Heights scale with the tile size, so things get smaller in bigger houses, like the original's tiles.
+  - Rugs lie just above the floor.
+  - Wall items hang on the back wall where the original's wall strip is, and a wall item turned 180° is mirrored.
+- **Caching:** models are cached per item and size.
+
+**Decorate mode in 3D (`src/world3d/decorate/Decorate.ts`)**
+
+- **Entering it:** the camera glides back a little and moves the room up above the tray, and a white grid lies over the floor (and the house's back wall).
+- **While decorating:** animals fade to 35% and can't be tapped. Finds hide. Only placed items and bowls take taps, like the original.
+- **A ghost footprint** (green if it fits, red if not) shows where an item would go:
+  - while dragging from the tray,
+  - while a mouse hovers with a tray item picked,
+  - while moving a placed item.
+- **Placing:** tap a tray item then a spot, or drag it from the tray into the world. Pictures go on the back wall. Placing shows a sparkle, and a refused spot shows its reason in red.
+- **Moving:** press a placed item (or bowl) to select it (it gets a glowing yellow outline) and drag it to move it. The tray's Turn and Put away work unchanged.
+- **Leaving it:** "Done" returns the camera to the normal view.
+- **One small UI change:** the tray's `decorDrag` event also carries the finger's page point (`client`). Its old 1280×800 point only makes sense for the original's fixed camera. The Phaser world is unchanged, and all the original Decorate tests still pass.
+
+**Camera:** `CameraRig.goTo(view)` glides to any view (used for Decorate). `homeView` gives the default.
+
+### Tests
+
+- **Unit:** 601 in total (7 new).
+  - The back wall mapping round-trips.
+  - Floor items fill their footprint at every tier and rotation, with the swapped width and depth and the correct turn.
+  - Wall items hang within the wall art band and mirror at 180°.
+  - Rugs lie just above the floor.
+  - Heights shrink in bigger houses.
+  - Every item model stays inside its footprint and on the floor, or flat against the wall.
+  - Models are shared per size.
+  - **This found a small bug:** the Warm Rock sat partly underground. It's fixed.
+- **E2E:** a new `world3d-decorate.spec.ts`, 8 tests × 3 browser setups:
+  - Buy a pet bed and place it with a tap, and the camera comes back home after Done.
+  - Drag a lure from the tray into the yard (the Lure Score goes up).
+  - Select a sofa to turn it and put it away.
+  - Drag a placed table to a new tile.
+  - Hang a picture on the back wall.
+  - Animals and finds are out of the way while decorating, and animals can be tapped again after.
+  - The layout survives a reload.
+  - A furnished Manor room with 10 animals stays within the drawing budget: about 171k triangles and 92 draw calls, held under 300k and 150.
+- **Full run:** 353 passed, 7 skipped, 0 failed.
+
+### Defaults chosen (please confirm or change)
+
+1. **A cutaway dollhouse room:** a full back wall and half-height side walls, which vanish from outside.
+2. **Wall art hangs between 0.7 and 2.15 units** up the back wall (the original's wall strip, standing up).
+3. **The Decorate camera** zooms out 20% and moves the room up above the tray (the original zoomed to 0.8). You can still orbit while decorating.
+4. **The selected item gets a glowing yellow outline.** The original made it 75% see-through.
+
+### Known issues
+
+- **Yard lures** are sized to the yard's small 0.88 × 0.47 tiles, like the original's, so some (the moon lantern, the bamboo) look slim from far away.
+- **The Vet Clinic scene, the player's avatar and pet outfits** are 3D-5.

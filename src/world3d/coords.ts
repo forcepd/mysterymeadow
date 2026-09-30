@@ -77,3 +77,40 @@ export function framePoints(zone: ViewZone): Point3[] {
   }
   return [...ground, ...rectCorners(HOUSE_BOX, HOUSE_HEIGHT)];
 }
+
+// ---- The room's back wall -----------------------------------------------------------------------
+
+/**
+ * The original draws wall art on a strip above the floor (ROOM.wallTop..wallBottom). In 3D that
+ * strip is the back wall standing up at the floor's back edge: its bottom edge maps to
+ * WALL_ART.bottom and its top edge to WALL_ART.top (heights in units).
+ */
+export const WALL_ART = { bottom: 0.7, top: 2.15 } as const;
+
+/** Where the back wall stands (ground z). */
+export const BACK_WALL_Z = worldToGround({ x: 0, y: ROOM.wallBottom }).z;
+
+/** A point on the back wall (x, height) for a world-pixel point on the original's wall strip. */
+export function wallStripToWall(p: Vec2): { x: number; y: number; z: number } {
+  const t = (ROOM.wallBottom - p.y) / (ROOM.wallBottom - ROOM.wallTop);
+  return {
+    x: worldToGround(p).x,
+    y: WALL_ART.bottom + t * (WALL_ART.top - WALL_ART.bottom),
+    z: BACK_WALL_Z,
+  };
+}
+
+/** The world-pixel point on the wall strip for a point on the back wall (x, height). */
+export function wallToWallStrip(x: number, height: number): Vec2 {
+  const t = (height - WALL_ART.bottom) / (WALL_ART.top - WALL_ART.bottom);
+  return {
+    x: groundToWorld({ x, z: 0 }).x,
+    y: ROOM.wallBottom - t * (ROOM.wallBottom - ROOM.wallTop),
+  };
+}
+
+/** A world-pixel rectangle on the ground: its center and size in units. */
+export function groundRect(r: Rect): { x: number; z: number; w: number; d: number } {
+  const c = worldToGround({ x: r.x + r.w / 2, y: r.y + r.h / 2 });
+  return { x: c.x, z: c.z, w: toUnits(r.w), d: toUnits(r.h) };
+}

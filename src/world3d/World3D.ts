@@ -7,6 +7,7 @@ import {
   Mesh,
   MeshBasicMaterial,
   PCFShadowMap,
+  Plane,
   Raycaster,
   RingGeometry,
   Scene,
@@ -19,10 +20,21 @@ import { appBus } from '../bridge/appBus';
 import type { GameSession } from '../bridge/gameSession';
 import type { Vec2 } from '../sim/types';
 import { CameraRig } from './CameraRig';
-import { framePoints, groundToWorld, worldToGround, type Point3, type ViewZone } from './coords';
+import {
+  BACK_WALL_Z,
+  framePoints,
+  groundToWorld,
+  wallToWallStrip,
+  worldToGround,
+  type Point3,
+  type ViewZone,
+} from './coords';
 import { GestureRecognizer, TAP_SLOP, type PointerSample, type PressHandler } from './gestures';
 import type { ScreenPoint, ViewInfo } from './testHooks';
-import { buildHousePlaceholder } from './placeholders';
+import { Room } from './house/Room';
+import { Items } from './items/Items';
+import { Decorate } from './decorate/Decorate';
+import { animalMaterials } from './animals/materials';
 import { sceneryFade } from './art/toon';
 import { Yard } from './yard/Yard';
 import { SKY_HORIZON } from './yard/scenery';
@@ -57,6 +69,9 @@ export class World3D {
   private readonly raycaster = new Raycaster();
   private readonly critters: Critters;
   private readonly care: Care;
+  private readonly room = new Room();
+  private readonly items: Items;
+  private readonly decorate: Decorate;
   private readonly fx: Effects3D;
   /** Flying coins (DOM), over the canvas. */
   private readonly overlay = document.createElement('div');
@@ -97,10 +112,33 @@ export class World3D {
     this.scene.fog = new Fog(SKY_HORIZON, 32, 85);
     this.addLights();
 
-    this.zones = { yard: this.yard.group, house: buildHousePlaceholder() };
+    this.zones = { yard: this.yard.group, house: this.room.group };
     this.zones.house.visible = false;
     this.critters = new Critters(session, this.zones, fxHost);
     this.care = new Care(session, this.zones, fxHost);
+    this.items = new Items(session, this.zones);
+    this.decorate = new Decorate(
+      session,
+      {
+        zone: () => this.zone,
+        zones: this.zones,
+        floorPoint: (q) => {
+          const g = this.rig.groundAt(this.ndc(q));
+          return g ? groundToWorld(g) : null;
+        },
+        wallPoint: (q) => this.wallPoint(q),
+        clientToCanvas: (c) => {
+          const r = this.renderer.domElement.getBoundingClientRect();
+          if (c.x < r.left || c.x > r.right || c.y < r.top || c.y > r.bottom) return null;
+          return { x: c.x - r.left, y: c.y - r.top };
+        },
+        say: (at, text, color) => this.fx.floatText(this.zones[this.zone], at, text, color, 22),
+        sparkle: (at) =>
+          this.fx.burst(this.zones[this.zone], at, [0xffd84d, 0xffffff, 0x9fe7ff], 8),
+        changed: (on) => this.setDecorating(on),
+      },
+      (id) => this.items.select(id),
+    );
     this.doorRing = new Mesh(
       new RingGeometry(0.75, 0.95, 48),
       new MeshBasicMaterial({
@@ -196,6 +234,8 @@ export class World3D {
     this.gestures.cancel();
     this.critters.dispose();
     this.care.dispose();
+    this.decorate.dispose();
+    this.room.dispose();
     this.fx.dispose();
     this.scene.traverse((o) => {
       if (o instanceof Mesh) {
@@ -256,7 +296,11 @@ export class World3D {
       appBus.emit('canvasTap', w);
       this.gestures.down(p);
     });
-    on('pointermove', (e) => this.gestures.move(sample(e)));
+    on('pointermove', (e) => {
+      // A mouse moving over the room with a tray item picked shows where it would go.
+      if (e.buttons === 0 && e.pointerType === 'mouse') this.decorate.hover(sample(e));
+      this.gestures.move(sample(e));
+    });
     on('pointerup', (e) => this.gestures.up(sample(e)));
     on('pointercancel', (e) => this.gestures.cancel(sample(e)));
     on(
@@ -339,10 +383,48 @@ export class World3D {
     return best;
   }
 
+  /** The spot on the house's wall strip (world px) under a screen point: the back wall. */
+  private wallPoint(q: { x: number; y: number }): { x: number; y: number } | null {
+    const ray = this.rig.rayAt(this.ndc(q));
+    const hit = ray.intersectPlane(new Plane(new Vector3(0, 0, 1), -BACK_WALL_Z), new Vector3());
+    if (!hit || hit.y < -0.5) return null;
+    return wallToWallStrip(hit.x, hit.y);
+  }
+
+  /** Decorate mode on or off: animals fade, finds hide, the camera makes room for the tray. */
+  private setDecorating(on: boolean): void {
+    this.items.decorating = on;
+    this.care.setDecorating(on);
+    const m = animalMaterials();
+    for (const material of [m.body, m.outline]) {
+      material.transparent = on;
+      material.opacity = on ? 0.35 : 1;
+      material.needsUpdate = true;
+    }
+    this.labels.domElement.style.opacity = on ? '0.35' : '';
+    this.gestures.cancel();
+    const now = performance.now();
+    if (!on) {
+      this.rig.reset(now, this.reducedMotion());
+      return;
+    }
+    // Zoomed out a little, and the room moved up above the tray.
+    const home = this.rig.homeView;
+    this.rig.goTo(
+      { ...home, zoom: home.zoom * 1.2, target: { x: home.target.x, z: home.target.z + 1 } },
+      now,
+      this.reducedMotion(),
+    );
+  }
+
   /** Everything tappable in the zone on show, by pick key. */
   private live(): Map<string, Pickable> {
     const live = new Map<string, Pickable>();
-    for (const source of [this.critters.pickables(), this.care.pickables()]) {
+    // In Decorate mode only placed things (and bowls) take taps, like the original.
+    const sources = this.decorate.active
+      ? [this.items.pickables(), [...this.care.pickables()].filter((p) => p.kind === 'bowl')]
+      : [this.critters.pickables(), this.care.pickables()];
+    for (const source of sources) {
       for (const p of source) if (p.zone === this.zone) live.set(pickKey(p.kind, p.id), p);
     }
     return live;
@@ -351,6 +433,7 @@ export class World3D {
   private pressAt(p: PointerSample): PressHandler | null {
     const target = this.pick(p);
     if (!target) return null;
+    if (this.decorate.active) return this.decorate.pressItem(target, p);
     if (target.kind === 'animal') return this.pressAnimal(target.id, p);
     // Everything else acts on a tap (released without dragging off).
     const start = p;
@@ -405,6 +488,10 @@ export class World3D {
   }
 
   private tapGround(p: PointerSample): void {
+    if (this.decorate.active) {
+      this.decorate.tapEmpty(p);
+      return;
+    }
     const ground = this.rig.groundAt(this.ndc(p));
     if (ground) this.fx.ripple(this.zones[this.zone], { x: ground.x, y: 0, z: ground.z });
     appBus.emit('selectAnimal', { id: null });
@@ -467,9 +554,12 @@ export class World3D {
     const dt = Math.min(0.1, (now - this.lastFrame) / 1000);
     this.lastFrame = now;
     this.yard.sync(this.session.sim.state.world);
+    this.room.sync(this.session.sim.state.world);
     const ctx = { now, dt, reducedMotion: this.reducedMotion(), cameraYaw: this.rig.view.azimuth };
     this.critters.update(ctx, this.zone);
     this.care.update(ctx);
+    this.items.update(this.rig.camera);
+    this.decorate.update();
     this.fx.update(now);
     if (this.doorRing.visible) {
       const pulse = ctx.reducedMotion ? 1 : 1 + 0.08 * Math.sin(now / 150);

@@ -54,7 +54,13 @@ export type AppEvents = {
    * units (0..1280 x 0..800; null = off the canvas). The scene converts it through its camera.
    * `drop` = the finger was lifted there.
    */
-  decorDrag: { itemId: string; at: { x: number; y: number } | null; drop: boolean };
+  decorDrag: {
+    itemId: string;
+    at: { x: number; y: number } | null;
+    drop: boolean;
+    /** The finger's page point (the 3D world projects it itself; its camera can move). */
+    client?: { x: number; y: number };
+  };
   /** Decorate: the placed item selected in the room (scene -> tray), or null. */
   decorSelect: { placedId: string | null };
   /** Decorate: something from the tray was placed (scene -> tray). */

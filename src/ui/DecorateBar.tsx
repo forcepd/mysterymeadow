@@ -292,6 +292,7 @@ function useTrayDrag(pick: (itemId: string | null) => void) {
         itemId: p.itemId,
         at: canvasPoint(e.clientX, e.clientY),
         drop: false,
+        client: { x: e.clientX, y: e.clientY },
       });
     };
     const up = (e: globalThis.PointerEvent) => {
@@ -305,7 +306,12 @@ function useTrayDrag(pick: (itemId: string | null) => void) {
       const under = document.elementFromPoint(e.clientX, e.clientY);
       const onTray = under?.closest('[aria-label="Decorate"]');
       const at = onTray ? null : canvasPoint(e.clientX, e.clientY);
-      appBus.emit('decorDrag', { itemId: p.itemId, at, drop: at !== null });
+      appBus.emit('decorDrag', {
+        itemId: p.itemId,
+        at,
+        drop: at !== null,
+        ...(at ? { client: { x: e.clientX, y: e.clientY } } : {}),
+      });
     };
     const cancel = () => {
       const p = press.current;

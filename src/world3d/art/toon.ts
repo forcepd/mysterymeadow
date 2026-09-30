@@ -24,8 +24,8 @@ import { COLORS } from '../../game/constants';
 
 let gradient: DataTexture | null = null;
 
-/** Three light bands: shade, mid, lit. */
-function toonGradient(): DataTexture {
+/** Three light bands: shade, mid, lit (shared by every toon material). */
+export function toonGradient(): DataTexture {
   if (!gradient) {
     gradient = new DataTexture(new Uint8Array([150, 205, 255]), 3, 1, RedFormat);
     gradient.minFilter = NearestFilter;
