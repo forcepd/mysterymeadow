@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { avatarDataUri } from '../art/avatarSvg';
 import type { AvatarLoadout } from '../profile/avatar';
+import { usePortraitProviders } from './portraitProviders';
 
 /** The layered avatar as an image. */
 export function AvatarView({
@@ -15,7 +16,12 @@ export function AvatarView({
   /** Accessible name; decorative (hidden) when omitted. */
   label?: string;
 }) {
-  const src = useMemo(() => avatarDataUri(loadout), [loadout]);
+  const portraits = usePortraitProviders();
+  // The 3D world's avatar when it's loaded, else the original's picture.
+  const src = useMemo(
+    () => (portraits ? portraits.avatar(loadout) : avatarDataUri(loadout)),
+    [loadout, portraits],
+  );
   return (
     <img
       src={src}

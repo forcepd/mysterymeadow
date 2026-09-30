@@ -3,6 +3,7 @@ import { animalArt, type ArtRequest } from '../assets/manifest';
 import { getIllness } from '../config/illnesses';
 import type { Animal } from '../sim/types';
 import styles from './PetPortrait.module.css';
+import { usePortraitProviders } from './portraitProviders';
 
 /** Built pictures by key, so re-renders don't rebuild the SVG. */
 const uris = new Map<string, string>();
@@ -31,9 +32,11 @@ export function PetPortrait({
   size?: number;
   now?: number;
 }) {
+  const portraits = usePortraitProviders();
   const sick = animal.sickness && (getIllness(animal.sickness.illnessId)?.symptomIcon ?? '🤒');
   const baby = now !== undefined && animal.grownAt !== undefined && now < animal.grownAt;
-  const src = uriOf(animalArt(animal, PORTRAIT_VIEW));
+  // The 3D world's portrait when it's loaded, else the original's picture.
+  const src = portraits ? portraits.animal(animal) : uriOf(animalArt(animal, PORTRAIT_VIEW));
   return (
     <span
       className={`${styles.portrait} ${animal.isSparkle ? styles.sparkle : ''}`}
@@ -49,9 +52,12 @@ export function PetPortrait({
 
 /** An undiscovered species in the Dex: its dark shape and a "?". */
 export function Silhouette({ speciesId, size = 64 }: { speciesId?: string; size?: number }) {
-  const src = speciesId
-    ? uriOf(animalArt({ speciesId, variantId: '', silhouette: true }, PORTRAIT_VIEW))
-    : undefined;
+  const portraits = usePortraitProviders();
+  const src = !speciesId
+    ? undefined
+    : portraits
+      ? portraits.silhouette(speciesId)
+      : uriOf(animalArt({ speciesId, variantId: '', silhouette: true }, PORTRAIT_VIEW));
   return (
     <span
       className={`${styles.portrait} ${styles.silhouette}`}

@@ -33,7 +33,11 @@ export class Walker {
   pos: GroundPoint;
   private walk: Walk | null = null;
 
-  constructor(start: GroundPoint) {
+  constructor(
+    start: GroundPoint,
+    /** Walking speed and trip times (the avatar walks faster than the animals). */
+    private readonly pace = { speed: WALK_SPEED, minMs: MIN_WALK_MS, maxMs: MAX_WALK_MS },
+  ) {
     this.pos = { ...start };
   }
 
@@ -55,7 +59,8 @@ export class Walker {
       onDone?.();
       return;
     }
-    const duration = Math.min(MAX_WALK_MS, Math.max(MIN_WALK_MS, (dist / WALK_SPEED) * 1000));
+    const { speed, minMs, maxMs } = this.pace;
+    const duration = Math.min(maxMs, Math.max(minMs, (dist / speed) * 1000));
     this.walk = { from: { ...this.pos }, to: { ...to }, start: now, duration, onDone };
   }
 

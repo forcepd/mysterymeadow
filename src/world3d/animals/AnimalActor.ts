@@ -10,6 +10,7 @@ import { labelStyles, setText, worldLabel } from './labels';
 import { animalMaterials, starTexture } from './materials';
 import { animalModel, type AnimalModel } from './model';
 import { symptomView, type SymptomView } from './symptoms';
+import { outfitMesh } from './outfits';
 import {
   ambleSpot,
   breath,
@@ -82,8 +83,14 @@ export class AnimalActor {
   private pop: { start: number } | null = null;
   private leaving: Leaving | null = null;
   private symptom: SymptomView | null = null;
+  private outfit: Mesh | null = null;
+  private outfitKey = '';
   /** Picked up by the player's finger (drag to the door). */
   private dragging = false;
+  /** False keeps it standing still, facing the camera (the patient on the vet's table). */
+  ambles = true;
+  /** Extra size (the vet's patient is shown bigger, like the original). */
+  sizeScale = 1;
   private lastNow = 0;
 
   constructor(
@@ -128,7 +135,7 @@ export class AnimalActor {
 
   /** The model's height at its current size (for labels, rings, and projection). */
   get height(): number {
-    return this.model.height * this.baseScale;
+    return this.model.height * this.baseScale * this.sizeScale;
   }
 
   get isLeaving(): boolean {
@@ -164,6 +171,16 @@ export class AnimalActor {
       // Rebuild any symptom look for the new body.
       this.symptom?.dispose();
       this.symptom = null;
+    }
+
+    // Pet outfits (DESIGN 10.3), fitted to this body.
+    const { head, body, face } = animal.outfit;
+    const outfitKey = `${look}|${head ?? ''}|${body ?? ''}|${face ?? ''}`;
+    if (outfitKey !== this.outfitKey) {
+      this.outfitKey = outfitKey;
+      this.outfit?.removeFromParent();
+      this.outfit = outfitMesh(look, this.model.anchors, animal.outfit);
+      if (this.outfit) this.figure.add(this.outfit);
     }
 
     const baby = badges.includes('baby');
@@ -254,6 +271,7 @@ export class AnimalActor {
     this.lastNow = now;
     // Amble around home now and then (never while leaving or with reduced motion).
     if (
+      this.ambles &&
       !this.leaving &&
       !this.dragging &&
       !this.walker.walking &&
@@ -269,7 +287,7 @@ export class AnimalActor {
 
     // Face where it's going; when standing, turn back toward the camera (a little off-center).
     const heading = this.walker.heading();
-    const want = heading ?? ctx.cameraYaw + this.idleYaw;
+    const want = heading ?? ctx.cameraYaw + (this.ambles ? this.idleYaw : 0);
     this.yaw = reducedMotion && heading === null ? want : turnToward(this.yaw, want, ctx.dt * 7);
 
     let pose: Pose = REST;
@@ -332,7 +350,7 @@ export class AnimalActor {
   private placeRoot(yaw: number): void {
     const p = this.walker.pos;
     this.root.position.set(p.x, 0, p.z);
-    this.root.scale.setScalar(this.baseScale);
+    this.root.scale.setScalar(this.baseScale * this.sizeScale);
     // Only the figure turns; labels and the tap volume don't need to.
     this.turn.rotation.y = yaw;
   }

@@ -56,6 +56,7 @@ export class CameraRig {
   constructor(
     private readonly points: readonly Point3[],
     aspect = 16 / 10,
+    homePolar = HOME_POLAR,
   ) {
     const xs = points.map((p) => p.x);
     const zs = points.map((p) => p.z);
@@ -67,7 +68,7 @@ export class CameraRig {
     };
     this.home = {
       azimuth: 0,
-      polar: HOME_POLAR,
+      polar: homePolar,
       zoom: 1,
       target: {
         x: (this.bounds.minX + this.bounds.maxX) / 2,

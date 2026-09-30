@@ -247,6 +247,11 @@ function spread(count: number, keep: (d: Vector3) => boolean): Vector3[] {
 
 const add = (a: V3, b: V3): V3 => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
 
+/** A shade of a color, except for silhouettes (one flat color). */
+function tone(p: Paint, color: string, change: (c: string) => string): string {
+  return p.details ? change(color) : color;
+}
+
 // ---- Body ---------------------------------------------------------------------------------------
 
 function body(P: Parts, f: Frame, p: Paint): void {
@@ -568,7 +573,14 @@ function ears(P: Parts, f: Frame, p: Paint): void {
       }
       case 'tufts': {
         const base = earBase(f, side, 38);
-        P.cone(darken(p.main, 0.1), base, outward(side, 34), hr * 0.15 * k, hr * 0.38 * k, 8);
+        P.cone(
+          tone(p, p.main, (c) => darken(c, 0.1)),
+          base,
+          outward(side, 34),
+          hr * 0.15 * k,
+          hr * 0.38 * k,
+          8,
+        );
         break;
       }
       case 'pig': {
@@ -642,16 +654,21 @@ function tail(P: Parts, f: Frame, p: Paint): void {
       break;
     case 'feather':
       for (const x of [-1, 0, 1]) {
-        P.ball(darken(p.main, 0.08), at(x * 0.05, 0.1, 0.06), [0.035 * k, 0.1 * k, 0.03 * k], {
-          rz: -x * 0.4,
-          rx: -0.5,
-          seg: [8, 6],
-        });
+        P.ball(
+          tone(p, p.main, (c) => darken(c, 0.08)),
+          at(x * 0.05, 0.1, 0.06),
+          [0.035 * k, 0.1 * k, 0.03 * k],
+          {
+            rz: -x * 0.4,
+            rx: -0.5,
+            seg: [8, 6],
+          },
+        );
       }
       break;
     case 'flat':
       P.ball(
-        darken(p.main, 0.12),
+        tone(p, p.main, (c) => darken(c, 0.12)),
         add(base, [0, -r[1] * 0.35, -0.16 * k]),
         [0.08 * k, 0.03 * k, 0.2 * k],
         {
@@ -665,7 +682,7 @@ function tail(P: Parts, f: Frame, p: Paint): void {
       });
       break;
     case 'flowing': {
-      const colors = [p.accent, p.dark, lighten(p.accent, 0.4)];
+      const colors = [p.accent, p.dark, tone(p, p.accent, (c) => lighten(c, 0.4))];
       colors.forEach((color, i) => {
         const x = (i - 1) * 0.04;
         P.tube(
@@ -703,14 +720,17 @@ function extras(P: Parts, f: Frame, p: Paint): void {
   const { c, r } = f.body;
   const hr = f.hr;
   const k = f.k;
+  // A silhouette is one flat color: no face details, no shading.
+  const shade = (c: string, k: number) => (p.details ? darken(c, k) : c);
   for (const extra of f.art.extras) {
+    if (!p.details && (extra === 'whiskers' || extra === 'moonMark')) continue;
     switch (extra) {
       case 'whiskers':
         for (const side of [-1, 1]) {
           for (const tilt of [-0.12, 0.12]) {
             const { at } = face(f, side * 0.42, -0.26, 0.01);
             P.rod(
-              darken(p.main, 0.5),
+              shade(p.main, 0.5),
               at,
               add(at, [side * hr * 0.42, tilt * hr, hr * 0.05]),
               0.005,
@@ -728,7 +748,7 @@ function extras(P: Parts, f: Frame, p: Paint): void {
       case 'featherWings':
         for (const side of [-1, 1]) {
           P.ball(
-            darken(p.main, 0.1),
+            shade(p.main, 0.1),
             [side * r[0] * 0.97, c[1] + r[1] * 0.02, c[2] - r[2] * 0.08],
             [0.045, r[1] * 0.58, r[2] * 0.62],
             {
@@ -813,7 +833,7 @@ function extras(P: Parts, f: Frame, p: Paint): void {
         for (const t of [0.15, 0.32]) {
           const d = new Vector3(...dir).normalize().multiplyScalar(hr * 1.0 * t);
           P.arc(
-            darken(p.dark, 0.15),
+            shade(p.dark, 0.15),
             add(at, [d.x, d.y, d.z]),
             dir,
             hr * 0.12 * (1 - t) * 0.95,
@@ -831,7 +851,7 @@ function extras(P: Parts, f: Frame, p: Paint): void {
         }
         break;
       case 'mane': {
-        const colors = [p.accent, p.dark, lighten(p.accent, 0.35)];
+        const colors = [p.accent, p.dark, tone(p, p.accent, (c) => lighten(c, 0.35))];
         for (let i = 0; i < 7; i++) {
           const a = 0.45 + i * 0.3;
           const at = add(f.head.c, [
@@ -900,21 +920,40 @@ function finish(P: Parts, f: Frame): AnimalModel {
 
 /** The 3D model for a look (cached). Unknown species fall back to the bunny. */
 export function animalModel(speciesId: string, variantId: string, sparkle = false): AnimalModel {
-  const key = `${speciesId}|${variantId}|${sparkle}`;
+  return build(speciesId, variantId, sparkle, false);
+}
+
+/** An undiscovered species in the Dex: its shape in one dark color, no face or markings. */
+export function silhouetteModel(speciesId: string): AnimalModel {
+  return build(speciesId, '', false, true);
+}
+
+function build(
+  speciesId: string,
+  variantId: string,
+  sparkle: boolean,
+  silhouette: boolean,
+): AnimalModel {
+  const key = `${speciesId}|${variantId}|${sparkle}|${silhouette}`;
   const cached = cache.get(key);
   if (cached) return cached;
   const species = getSpecies(speciesId) ?? getSpecies('bunny')!;
   const variant = species.variants.find((v) => v.id === variantId) ?? species.variants[0]!;
-  const p = paintFor(variant.colors, sparkle, false);
-  const f = frameFor(species.art, [...species.art.patterns, ...(variant.patterns ?? [])]);
+  const p = paintFor(variant.colors, sparkle, silhouette);
+  const f = frameFor(
+    species.art,
+    silhouette ? [] : [...species.art.patterns, ...(variant.patterns ?? [])],
+  );
   const P = new Parts();
   body(P, f, p);
   head(P, f, p);
   tail(P, f, p);
   ears(P, f, p);
-  markings(P, f, p, hashSeed(key));
-  nose(P, f, p);
-  eyes(P, f);
+  if (!silhouette) {
+    markings(P, f, p, hashSeed(key));
+    nose(P, f, p);
+    eyes(P, f);
+  }
   extras(P, f, p);
   const model = finish(P, f);
   cache.set(key, model);

@@ -35,6 +35,9 @@ import { Room } from './house/Room';
 import { Items } from './items/Items';
 import { Decorate } from './decorate/Decorate';
 import { animalMaterials } from './animals/materials';
+import { AvatarActor } from './avatar/AvatarActor';
+import { VetRoom } from './vet/VetRoom';
+import { HOUSE_DOOR, INSIDE_DOOR } from '../game/layout';
 import { sceneryFade } from './art/toon';
 import { Yard } from './yard/Yard';
 import { SKY_HORIZON } from './yard/scenery';
@@ -72,6 +75,10 @@ export class World3D {
   private readonly room = new Room();
   private readonly items: Items;
   private readonly decorate: Decorate;
+  /** The player's avatar, one in each zone (like the original's scenes). */
+  private readonly avatars: Record<ViewZone, AvatarActor>;
+  /** The Vet Clinic (DESIGN 9.5): its own room and fixed camera while it's open. */
+  private readonly vet: VetRoom;
   private readonly fx: Effects3D;
   /** Flying coins (DOM), over the canvas. */
   private readonly overlay = document.createElement('div');
@@ -117,6 +124,22 @@ export class World3D {
     this.critters = new Critters(session, this.zones, fxHost);
     this.care = new Care(session, this.zones, fxHost);
     this.items = new Items(session, this.zones);
+    this.vet = new VetRoom(
+      session,
+      host,
+      this.fx,
+      (p) => this.toCanvas(p),
+      () => this.reducedMotion(),
+    );
+    this.scene.add(this.vet.group);
+    this.avatars = {
+      yard: new AvatarActor('yard', HOUSE_DOOR),
+      house: new AvatarActor('house', INSIDE_DOOR),
+    };
+    for (const zone of ['yard', 'house'] as ViewZone[]) {
+      this.avatars[zone].setLoadout(session.profile.avatar);
+      this.zones[zone].add(this.avatars[zone].root);
+    }
     this.decorate = new Decorate(
       session,
       {
@@ -160,8 +183,11 @@ export class World3D {
     this.gestures = new GestureRecognizer({
       pressAt: (p) => this.pressAt(p),
       tap: (p) => this.tapGround(p),
-      orbit: (dx, dy) => this.rig.orbit(dx, dy, this.size.height),
+      orbit: (dx, dy) => {
+        if (!this.vet?.active) this.rig.orbit(dx, dy, this.size.height);
+      },
       pinch: ({ from, to, scale }) => {
+        if (this.vet?.active) return;
         this.rig.pan(this.ndc(from), this.ndc(to));
         this.rig.zoomAt(1 / scale, this.ndc(to));
       },
@@ -172,7 +198,7 @@ export class World3D {
   }
 
   private get rig(): CameraRig {
-    return this.rigs[this.zone];
+    return this.vet?.active ? this.vet.rig : this.rigs[this.zone];
   }
 
   private reducedMotion(): boolean {
@@ -206,6 +232,12 @@ export class World3D {
     return p ? this.toPage(this.anchorOf(p, 0.5)) : null;
   }
 
+  /** Where the Vet Clinic's patient is on the page (null when the clinic is closed). */
+  projectPatient(): ScreenPoint | null {
+    const p = this.vet.patientMiddle();
+    return p ? this.toPage(p) : null;
+  }
+
   /** Particles alive right now (the original's cap applies). */
   particles(): number {
     return this.fx.particleCount;
@@ -234,6 +266,7 @@ export class World3D {
     this.gestures.cancel();
     this.critters.dispose();
     this.care.dispose();
+    this.vet.dispose();
     this.decorate.dispose();
     this.room.dispose();
     this.fx.dispose();
@@ -294,6 +327,10 @@ export class World3D {
       const ground = this.rig.groundAt(this.ndc(p));
       const w = ground ? groundToWorld(ground) : { x: 0, y: 0 };
       appBus.emit('canvasTap', w);
+      // The avatar walks toward every tap in the world (not while decorating), like the original.
+      if (ground && !this.decorate.active && !this.vet.active) {
+        this.avatars[this.zone].walkToward(ground, performance.now(), this.reducedMotion());
+      }
       this.gestures.down(p);
     });
     on('pointermove', (e) => {
@@ -307,6 +344,7 @@ export class World3D {
       'wheel',
       (e) => {
         e.preventDefault();
+        if (this.vet.active) return;
         const p = sample(e as unknown as PointerEvent);
         // Trackpad pinches arrive as ctrl+wheel with small deltas: zoom faster for those.
         const speed = e.ctrlKey ? 0.01 : 0.0015;
@@ -322,6 +360,21 @@ export class World3D {
 
     this.offs.push(
       appBus.on('showZone', ({ zone }) => this.showZone(zone)),
+      // The Vet Clinic: the zones sleep while it's open.
+      appBus.on('openVet', ({ animalId }) => {
+        this.gestures.cancel();
+        this.zones.yard.visible = this.zones.house.visible = false;
+        this.vet.open(animalId, performance.now());
+      }),
+      appBus.on('closeVet', () => {
+        this.vet.close();
+        this.zones[this.zone].visible = true;
+        appBus.emit('sceneChanged', { scene: this.zone });
+      }),
+      this.session.events.on('profileChanged', ({ profile }) => {
+        for (const zone of ['yard', 'house'] as ViewZone[])
+          this.avatars[zone].setLoadout(profile.avatar);
+      }),
       appBus.on('resetView', () => this.resetView()),
     );
   }
@@ -334,6 +387,8 @@ export class World3D {
     this.renderer.setSize(width, height);
     this.labels.setSize(width, height);
     for (const rig of Object.values(this.rigs)) rig.setAspect(width / height);
+    this.vet.rig.setAspect(width / height);
+    this.vet.resize(width);
   }
 
   // ---- Input -----------------------------------------------------------------------------------
@@ -394,6 +449,7 @@ export class World3D {
   /** Decorate mode on or off: animals fade, finds hide, the camera makes room for the tray. */
   private setDecorating(on: boolean): void {
     this.items.decorating = on;
+    for (const zone of ['yard', 'house'] as ViewZone[]) this.avatars[zone].root.visible = !on;
     this.care.setDecorating(on);
     const m = animalMaterials();
     for (const material of [m.body, m.outline]) {
@@ -431,6 +487,7 @@ export class World3D {
   }
 
   private pressAt(p: PointerSample): PressHandler | null {
+    if (this.vet.active) return null;
     const target = this.pick(p);
     if (!target) return null;
     if (this.decorate.active) return this.decorate.pressItem(target, p);
@@ -488,6 +545,7 @@ export class World3D {
   }
 
   private tapGround(p: PointerSample): void {
+    if (this.vet.active) return;
     if (this.decorate.active) {
       this.decorate.tapEmpty(p);
       return;
@@ -559,6 +617,8 @@ export class World3D {
     this.critters.update(ctx, this.zone);
     this.care.update(ctx);
     this.items.update(this.rig.camera);
+    this.vet.update(ctx);
+    for (const zone of ['yard', 'house'] as ViewZone[]) this.avatars[zone].update(ctx);
     this.decorate.update();
     this.fx.update(now);
     if (this.doorRing.visible) {

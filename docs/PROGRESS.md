@@ -1658,3 +1658,85 @@ With reduced motion, everything stays still and "achoo!" and "z z" stay put.
 
 - **Yard lures** are sized to the yard's small 0.88 × 0.47 tiles, like the original's, so some (the moon lantern, the bamboo) look slim from far away.
 - **The Vet Clinic scene, the player's avatar and pet outfits** are 3D-5.
+
+## Phase 3D-5: Vet Clinic, avatar, outfits and portraits (built 2026-09-30)
+
+### What was built
+
+**Pet outfits in 3D (`animals/outfits.ts`)**: all 11 from the Pet Boutique.
+
+- Each outfit is fitted to the animal's own head, neck, body and eyes, using new model anchors (`AnimalModel.anchors`), like the original's fitted outfits:
+  - **Hats:** a party hat with stripes and a pom-pom, a big bow, a flower clip, and a crown with gems.
+  - **Body:** a knitted sweater (stripes, ribbed hem and collar), a hero cape with a gold clasp, a two-layer tutu, and a scarf with a hanging, fringed end.
+  - **Face:** round glasses, star shades, and a polka-dot bandana on the chest.
+- **Sharing:** one merged mesh per look and outfit, using the animals' shared materials, so it fades with them in Decorate mode.
+
+**The player's avatar in 3D (`avatar/`)**
+
+- **A chunky chibi kid** built from the same loadout as the original's SVG avatar. Every Boutique option has a 3D recipe:
+  - **Body:** 3 body shapes and 8 skin tones.
+  - **Face:** 5 eye styles (round, happy, wide, sparkly, wink), 3 brows, 4 mouths.
+  - **Hair:** 7 hairstyles in 8 colors.
+  - **Makeup:** blush and heart blush, eyeshadow, lips, and face paint (glitter, heart, whiskers).
+  - **Clothes:** tops (tee, stripes, hoodie, heart, star, rainbow), bottoms (pants, shorts, skirt, tutu), and one-pieces (dress, overalls, starry gown).
+  - **Shoes:** sneakers, boots, sandals, bunny slippers.
+  - **Accessories:** cap, flower crown, tiny crown, bunny ears; round, star and sun glasses; backpack and purse; studs, hoops and heart earrings.
+- **Face:** it tilts up to look at the camera, like the animals.
+- **In the world:** one avatar per zone. It walks toward every tap, stopping beside the spot on the side it came from, at the original's pace, with a hop. It never takes taps, and it hides while decorating.
+
+**3D portraits in the menus (`portraits/Portraits.ts`, `ui/portraitProviders.ts`)**
+
+- **Where they show:** the Animal Card, Pets, Pet Wardrobe, Training, the Dex (with dark 3D silhouettes for animals not found yet), the HUD's avatar button, the Style / Wardrobe screens, and Settings.
+- **How:** one small offscreen renderer draws each look once to an image and caches it. Pets are drawn head-and-shoulders, outfit included; avatars stand full height.
+- **The 2D game is unchanged:** a tiny registry in the main bundle lets the 3D world plug portraits in while it's loaded, so the default game still uses the original's SVG pictures and never downloads Three.js.
+
+**The Vet Clinic in 3D (`vet/VetRoom.ts`)**
+
+- **The room:** mint striped walls, a window, the big red cross sign, the "Vet Clinic" title, a striped floor, and the exam table.
+- **The patient** stands on the table at the original's 1.8× size, facing you, with its symptom and outfit.
+- **Exam tools:** the three tools are the original's cream tray cards, in the same places along the bottom-left. Tap one, or drag it onto the patient, to examine. It glides over, wiggles, and the clue icons float up. Dropping a tool elsewhere sends it back. The tools rest (dimmed) during a Free Clinic wait, or when the patient is well.
+- **Panel:** the clinic panel (React) is unchanged. It gets the same `vetExamined` events.
+- **Treatments:**
+  - **The cure:** stars, hearts and a happy jump.
+  - **The first fix of two:** "1 more!".
+  - **A wrong one:** a "?" and a wobble.
+- **Camera:** a fixed head-on camera at 58°, like the original's front view. No orbiting in the clinic.
+
+**Model change:** `silhouetteModel()` gives the Dex its faceless, one-color shapes (no whiskers or face marks, no shading).
+
+### Tests
+
+- **Unit:** 607 in total (6 new).
+  - Every Pet Boutique outfit kind has a 3D recipe.
+  - Every outfit on every species stays on the animal, with hats on the head and face items on the face.
+  - Outfit meshes are shared per look and outfit.
+  - Silhouettes are one color for every species.
+  - The avatar builds with every one of the 83 avatar items, standing on the ground at its height.
+  - Avatar meshes are shared per loadout.
+- **E2E:** two new specs, each 4 tests × 3 browser setups.
+  - **`world3d-vet.spec.ts`:**
+    - Pay, examine with a tool, a wrong treatment, the cure, and back to the yard.
+    - Drag a tool onto the patient to examine; dropping it elsewhere does nothing.
+    - Nothing covers the tools, and they're at least 48 px.
+    - The Free Clinic wait rests the tools.
+  - **`world3d-dress.spec.ts`:**
+    - PNG (3D) portraits with `?3d`, SVG without.
+    - Dress a pet in the wardrobe, and its portrait changes.
+    - Every species wears every outfit kind without errors, within the drawing budget.
+    - The Dex shows 3D shapes.
+
+- **Full e2e run:** 377 passed, 7 skipped, 0 failed.
+
+### Defaults chosen (please confirm or change)
+
+1. **The exam tools stay flat cards** (like the original's), not 3D objects.
+2. **The avatar is about twice an animal's height,** like the original.
+3. **The clinic camera is fixed** (no orbiting), for a clear exam view next to the panel.
+4. **Portraits are drawn from slightly above,** with the pet's face tilted up, so they match the world.
+5. **Outfit meshes are trimmed to low detail.** 21 animals in full outfits stay under 350k triangles.
+
+### Known issues
+
+- The Vet Clinic title can overlap the floating clue icons for a moment.
+- The avatar's portrait is drawn straight on; the original's was a flat front view.
+- **Coming in 3D-6:** the iPad performance pass, moving the original e2e tests to the 3D world, making 3D the default, and removing Phaser and the SVG renderers.

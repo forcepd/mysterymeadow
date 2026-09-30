@@ -1,0 +1,63 @@
+/* The Vet Clinic's exam tools and title, over the 3D clinic. */
+
+.tools {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.tools[hidden] {
+  display: none;
+}
+
+.tool {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  transform: translate(-50%, -50%);
+  border: 5px solid #d6c29a;
+  border-radius: 22px;
+  background: #fff8ea;
+  color: #4a3b33;
+  font: 800 16px/1.1 var(--font-body, Nunito, system-ui, sans-serif);
+  text-align: center;
+  cursor: grab;
+  pointer-events: auto;
+  touch-action: none;
+  user-select: none;
+  box-shadow: 0 4px 0 rgba(74, 59, 51, 0.15);
+}
+
+.tool[data-dragging='true'] {
+  z-index: 2;
+  cursor: grabbing;
+}
+
+.tool[data-dim='true'] {
+  opacity: 0.45;
+}
+
+.tool:focus-visible {
+  outline: 4px solid #4a3b33;
+  outline-offset: 2px;
+}
+
+.icon {
+  font-size: 44px;
+  line-height: 1;
+}
+
+.name {
+  padding: 0 6px;
+}
+
+.title {
+  color: #2f6f63;
+  font: 800 40px/1 var(--font-body, Nunito, system-ui, sans-serif);
+  white-space: nowrap;
+  paint-order: stroke fill;
+  -webkit-text-stroke: 8px #ffffff;
+}

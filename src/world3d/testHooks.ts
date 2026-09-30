@@ -24,6 +24,8 @@ export interface Meadow3DHooks {
   view(): ViewInfo;
   /** What the last frame drew (draw calls and triangles), for the performance budget. */
   stats(): { calls: number; triangles: number };
+  /** Where the Vet Clinic's patient is on the page (null when it's closed). */
+  projectPatient(): ScreenPoint | null;
   /** Effect particles alive right now. */
   particles(): number;
 }
