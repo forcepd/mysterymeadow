@@ -9,3 +9,18 @@
   display: block;
   touch-action: none;
 }
+
+/* 3D: back to the default camera view. Above the ⚙️ button; only shown once the view moved. */
+.resetView {
+  position: absolute;
+  right: calc(12px + var(--safe-right));
+  bottom: calc(112px + var(--safe-bottom));
+  width: 56px;
+  height: 56px;
+  font-size: 26px;
+  z-index: 1;
+}
+
+.resetView[hidden] {
+  display: none;
+}

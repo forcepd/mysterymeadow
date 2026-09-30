@@ -59,6 +59,10 @@ export type AppEvents = {
   decorSelect: { placedId: string | null };
   /** Decorate: something from the tray was placed (scene -> tray). */
   decorPlaced: { itemId: string; placedId: string };
+  /** 3D: bring the camera back to the default view. */
+  resetView: undefined;
+  /** 3D: the camera left (or came back to) the default view. */
+  viewChanged: { atHome: boolean };
 };
 
 export const appBus = new Emitter<AppEvents>();

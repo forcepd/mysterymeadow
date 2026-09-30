@@ -25,12 +25,13 @@ export default tseslint.config(
         {
           patterns: [
             { group: ['phaser', 'phaser/*'], message: 'src/sim must not import Phaser.' },
+            { group: ['three', 'three/*'], message: 'src/sim must not import Three.js.' },
             {
               group: ['react', 'react-dom', 'react/*', 'react-dom/*'],
               message: 'src/sim must not import React.',
             },
             {
-              group: ['**/game/**', '**/ui/**', '**/dev/**', '**/save/**'],
+              group: ['**/game/**', '**/world3d/**', '**/ui/**', '**/dev/**', '**/save/**'],
               message: 'src/sim must not import app layers.',
             },
           ],

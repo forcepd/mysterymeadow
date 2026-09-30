@@ -1261,3 +1261,77 @@ The start is much busier, as intended. But because the yard fills to capacity ab
 - Added `three` and `@types/three`. Nothing uses them yet.
 - Checked: `npm test` (519 passed), `npm run build` and `npm run typecheck` pass.
 - Decisions and the 3D build plan are in `docs/DESIGN-3D.md`.
+
+## Phase 3D-0: Foundation (built 2026-09-30)
+
+### What was built
+
+**Try it:** add `?3d` to the address (e.g. `http://localhost:5173/?3d`). Without it, the game runs the original Phaser world, unchanged. The 3D code is its own chunk, loaded only with `?3d`, so the default game never downloads Three.js (an e2e test checks this).
+
+**3D world (`src/world3d/`)**
+
+- `World3D.ts` replaces the Phaser game when `?3d` is on:
+  - **Rendering:** a WebGL renderer with the pixel ratio capped at 2, soft sun shadows (one 1024 px shadow map), a sky/hemisphere light, and fog so the ground never shows an edge.
+  - **Sim wiring:** render only, like the original scenes. Every frame it reconciles with the sim, and taps go to sim commands or the app bus.
+  - **Events:** it sends the same bus events as the Phaser world (`canvasTap`, `selectAnimal`, `worldReady`, `sceneChanged`), so the HUD, Animal Card, and toasts work unchanged.
+- `coords.ts`: the original 1280×800 layout lies flat on the ground (100 world px = 1 unit; x → X, y → Z). Every spot in `layout.ts` (gate queue, doors, yard, tiles) lines up with the original.
+- `CameraRig.ts`: one orbit camera per zone.
+  - **Default view:** fitted to the zone like the original screen (house and gate queue at the top, yard down to above the menu, the room's back wall), for any screen shape.
+  - **Limits:** from 4° off overhead down to 20° above the ground; zoom 0.3×–1.3×; panning stays over the zone.
+  - **Zoom:** zooms toward the point under the finger or cursor.
+  - **Reset:** animates the short way around, or jumps with reduced motion.
+- `gestures.ts`: pure tap / orbit / pinch / object-press recognizer:
+  - A press on an object belongs to it and never moves the camera.
+  - On empty ground, a press that lifts within 10 px is a tap; one that moves orbits.
+  - Two fingers pinch-zoom and pan. The finger left after a pinch is ignored until lifted.
+  - A second finger cancels an object press.
+- **Picking:** a raycast against generous invisible hit volumes. If that misses, the nearest object whose middle is within 30 CSS px counts, so far-away and zoomed-out things still get a finger-sized target.
+- **Inputs:** mouse wheel and trackpad pinch zoom. The right-click menu is suppressed on the canvas.
+- **Placeholders** (`placeholders.ts`, `standIns.ts`) until the real art phases:
+  - The yard has a fence with a gate, the path, and the house in the saved exterior color. The room has a floor, a back wall, low side walls, and the doormat.
+  - Capsule stand-ins in each variant's main color: babies smaller, Sparkle glowing.
+  - Mystery visitors are dark with a "?" bubble and color in when revealed. There's a selection ring and a tap ripple.
+
+**UI**
+
+- `GameCanvas` picks the renderer; `GameCanvas3D.tsx` hosts the 3D world.
+- 🎥 **Reset view** button above ⚙️. It only shows once the camera has moved, and hides while decorating and in the Vet Clinic, like ⚙️.
+- `window.meadow3d` (`testHooks.ts`) has read-only `projectObject`, `projectWorld`, and `view`, so e2e tests can find things wherever the camera is.
+- New app-bus events: `resetView`, `viewChanged`.
+- ESLint now also blocks Three.js and `world3d/` imports from `src/sim` and `src/config`.
+
+### Tests
+
+- **Unit:** 555 in total (36 new).
+  - **Mapping:** the world ↔ ground round trip.
+  - **Default view:** fits the whole yard and room on 4:3, iPad mini, 16:10, 16:9 and 21:9, including every gate slot, yard corner and door.
+  - **Camera limits:** polar and zoom clamps, zoom-to-point keeps the point fixed, pan follows the finger and stops at the zone edge.
+  - **Reset:** instant, animated the short way around, and interrupted by a new gesture.
+  - **Gestures:** every recognizer rule above, and the `?3d` flag.
+- **E2E:** 8 new tests × 3 browser setups (22 passed, 2 skipped: no mouse wheel on iPads).
+  - Three.js isn't loaded without `?3d`.
+  - Tap an animal to open its card, and tap empty ground to close it.
+  - Tap the visitor to reveal it and it comes in.
+  - Drag to orbit, the reset button appears, taps still hit animals from the new angle, and reset returns home.
+  - A drag starting on an animal doesn't move the camera.
+  - Wheel zoom.
+  - Switch to the house and tap an animal there.
+  - Canvas taps are counted, and button taps don't fall through.
+
+### Defaults chosen (please confirm or change)
+
+1. **Taps on empty ground act on release**, not on press (the original closed the card on press). That's what lets a drag on the ground rotate the camera without closing the card first.
+2. **Two-finger pan** is included. The plan only mentioned rotate and zoom, but with zoom-to-point, being able to slide the view felt necessary. Reset undoes it.
+3. **Orbit speed:** a drag the full height of the screen turns 180°.
+4. **Default angle 40°** from overhead, with a narrow 30° lens so the view stays close to the original's flat 3/4 look.
+5. **No sky shows even at the lowest angle** (the top of the screen is still 5° below the horizon). A visible horizon can come with the yard art in 3D-1.
+
+### Known issues (planned for later 3D phases)
+
+- **Everything is a placeholder.** The yard art is 3D-1, the animals 3D-2.
+- **Not built in 3D yet:**
+  - No hold to pet and no drag to the door (3D-3).
+  - Bowls, poop, finds, effects and the player's avatar don't show (3D-3 / 3D-5).
+  - Decorate mode doesn't work in 3D (3D-4).
+- **The Vet Clinic's patient scene isn't built** (3D-5). The panel opens, but there's no patient to examine.
+- **Animals don't move in 3D yet.** The sim's wander spots and the render-only ambling come with 3D-2.

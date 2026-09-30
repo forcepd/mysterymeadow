@@ -1,13 +1,29 @@
-import { useEffect, useRef } from 'react';
+import { lazy, Suspense, useEffect, useRef } from 'react';
 import { appBus } from '../bridge/appBus';
 import { createGame } from '../game/createGame';
+import { is3DEnabled } from '../world3d/flag';
 import styles from './GameCanvas.module.css';
 import { useSession } from './session';
 
 const ZONE_SCENES = { yard: 'Yard', house: 'House' } as const;
 
-/** Hosts the Phaser canvas underneath the React overlay. */
+// Loaded only with `?3d`, so the default game never downloads Three.js.
+const GameCanvas3D = lazy(() => import('./GameCanvas3D'));
+
+/** The world under the React overlay: the original Phaser world, or the 3D one with `?3d`. */
 export function GameCanvas() {
+  if (is3DEnabled()) {
+    return (
+      <Suspense fallback={null}>
+        <GameCanvas3D />
+      </Suspense>
+    );
+  }
+  return <GameCanvasPhaser />;
+}
+
+/** Hosts the Phaser canvas underneath the React overlay. */
+function GameCanvasPhaser() {
   const session = useSession();
   const hostRef = useRef<HTMLDivElement>(null);
 
