@@ -13,11 +13,10 @@ import {
   Vector2,
   Vector3,
   WebGLRenderer,
-  type Object3D,
 } from 'three';
+import { CSS2DRenderer } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
 import { appBus } from '../bridge/appBus';
 import type { GameSession } from '../bridge/gameSession';
-import { gateSlot, zoneToWorld } from '../game/layout';
 import type { Vec2 } from '../sim/types';
 import { CameraRig } from './CameraRig';
 import { framePoints, groundToWorld, worldToGround, type Point3, type ViewZone } from './coords';
@@ -27,16 +26,8 @@ import { buildHousePlaceholder } from './placeholders';
 import { sceneryFade } from './art/toon';
 import { Yard } from './yard/Yard';
 import { SKY_HORIZON } from './yard/scenery';
-import {
-  animalStandIn,
-  PICK_KEY,
-  selectionRing,
-  STAND_IN_HEIGHT,
-  variantColor,
-  visitorStandIn,
-  type StandIn,
-  type VisitorStandIn,
-} from './standIns';
+import { Critters, type Pickable, type PickKind } from './animals/Critters';
+import { labelStyles } from './animals/labels';
 
 /** Device pixel ratio cap: sharp on Retina iPads without drawing 9x the pixels on 3x screens. */
 const MAX_PIXEL_RATIO = 2;
@@ -44,17 +35,6 @@ const MAX_PIXEL_RATIO = 2;
 const MIN_TAP_RADIUS = 30;
 /** Scenery closer than this fraction of the camera's distance fades away. */
 const NEAR_FADE = 0.6;
-
-type PickKind = 'animal' | 'visitor';
-
-interface Pickable {
-  kind: PickKind;
-  id: string;
-  zone: ViewZone;
-  object: Object3D;
-  /** Anchor height above the object's origin, for projection and near-taps. */
-  height: number;
-}
 
 interface Ripple {
   mesh: Mesh;
@@ -74,14 +54,13 @@ export class World3D {
   private zone: ViewZone = 'yard';
   private readonly gestures: GestureRecognizer;
   private readonly raycaster = new Raycaster();
-  private readonly pickables = new Map<string, Pickable>();
-  private readonly animals = new Map<string, StandIn>();
-  private readonly visitors = new Map<string, VisitorStandIn>();
-  private readonly ring = selectionRing();
+  private readonly critters: Critters;
+  /** Names, badges and bubbles over the animals (HTML, so crisp at any zoom). */
+  private readonly labels = new CSS2DRenderer();
   private readonly ripples: Ripple[] = [];
   private readonly rippleGeo = new RingGeometry(0.15, 0.22, 32);
-  private selectedId: string | null = null;
   private atHome = true;
+  private lastFrame = performance.now();
   private readonly offs: (() => void)[] = [];
   private readonly systemReducedMotion: boolean;
   private size = { width: 1, height: 1 };
@@ -98,6 +77,8 @@ export class World3D {
     this.renderer.shadowMap.type = PCFShadowMap;
     this.renderer.domElement.style.display = 'block';
     host.appendChild(this.renderer.domElement);
+    this.labels.domElement.className = labelStyles.layer!;
+    host.appendChild(this.labels.domElement);
 
     this.scene.background = new Color(SKY_HORIZON);
     this.scene.fog = new Fog(SKY_HORIZON, 32, 85);
@@ -105,7 +86,8 @@ export class World3D {
 
     this.zones = { yard: this.yard.group, house: buildHousePlaceholder() };
     this.zones.house.visible = false;
-    this.scene.add(this.zones.yard, this.zones.house, this.ring);
+    this.critters = new Critters(session, this.zones);
+    this.scene.add(this.zones.yard, this.zones.house, this.critters.selectionRing);
 
     this.rigs = {
       yard: new CameraRig(framePoints('yard')),
@@ -141,7 +123,6 @@ export class World3D {
     this.zone = zone;
     this.zones.yard.visible = zone === 'yard';
     this.zones.house.visible = zone === 'house';
-    this.reconcile();
     appBus.emit('sceneChanged', { scene: zone });
     this.notifyView(true);
   }
@@ -157,8 +138,8 @@ export class World3D {
 
   /** Where an animal or visitor (its middle) is on the page, or null if hidden or off screen. */
   projectObject(kind: PickKind, id: string): ScreenPoint | null {
-    const p = this.pickables.get(`${kind}:${id}`);
-    if (!p || p.zone !== this.zone || !p.object.visible) return null;
+    const p = this.critters.get(kind, id);
+    if (!p || p.zone !== this.zone) return null;
     return this.toPage(this.anchorOf(p, 0.5));
   }
 
@@ -183,6 +164,7 @@ export class World3D {
     this.renderer.setAnimationLoop(null);
     this.offs.forEach((off) => off());
     this.gestures.cancel();
+    this.critters.dispose();
     this.scene.traverse((o) => {
       if (o instanceof Mesh) {
         o.geometry.dispose();
@@ -192,6 +174,7 @@ export class World3D {
     });
     this.renderer.dispose();
     this.renderer.domElement.remove();
+    this.labels.domElement.remove();
   }
 
   // ---- Setup -----------------------------------------------------------------------------------
@@ -261,9 +244,6 @@ export class World3D {
     this.offs.push(() => observer.disconnect());
 
     this.offs.push(
-      appBus.on('selectAnimal', ({ id }) => {
-        this.selectedId = id;
-      }),
       appBus.on('showZone', ({ zone }) => this.showZone(zone)),
       appBus.on('resetView', () => this.resetView()),
     );
@@ -275,6 +255,7 @@ export class World3D {
     if (width === this.size.width && height === this.size.height) return;
     this.size = { width, height };
     this.renderer.setSize(width, height);
+    this.labels.setSize(width, height);
     for (const rig of Object.values(this.rigs)) rig.setAspect(width / height);
   }
 
@@ -288,17 +269,20 @@ export class World3D {
   private pick(p: { x: number; y: number }): Pickable | null {
     this.raycaster.setFromCamera(this.ndc(p), this.rig.camera);
     const hits = this.raycaster.intersectObject(this.zones[this.zone], true);
+    const live = new Map<string, Pickable>();
+    for (const pickable of this.critters.pickables()) {
+      if (pickable.zone === this.zone) live.set(`${pickable.kind}:${pickable.id}`, pickable);
+    }
     for (const hit of hits) {
-      const key = hit.object.userData[PICK_KEY] as string | undefined;
-      const pickable = key ? this.pickables.get(key) : undefined;
-      if (pickable && this.isLive(pickable)) return pickable;
+      const key = hit.object.userData.pickKey as string | undefined;
+      const pickable = key ? live.get(key) : undefined;
+      if (pickable) return pickable;
     }
     // Missed everything: take the nearest object whose middle is within a finger's reach, so
     // far-away or zoomed-out things still get a decent tap target.
     let best: Pickable | null = null;
     let bestDist = MIN_TAP_RADIUS;
-    for (const pickable of this.pickables.values()) {
-      if (!this.isLive(pickable)) continue;
+    for (const pickable of live.values()) {
       const s = this.toCanvas(this.anchorOf(pickable, 0.5));
       if (!s) continue;
       const d = Math.hypot(s.x - p.x, s.y - p.y);
@@ -308,10 +292,6 @@ export class World3D {
       }
     }
     return best;
-  }
-
-  private isLive(p: Pickable): boolean {
-    return p.zone === this.zone && p.object.visible;
   }
 
   private pressAt(p: PointerSample): PressHandler | null {
@@ -366,7 +346,7 @@ export class World3D {
 
   private anchorOf(p: Pickable, fraction: number): Point3 {
     const v = p.object.getWorldPosition(new Vector3());
-    return { x: v.x, y: v.y + p.height * p.object.scale.y * fraction, z: v.z };
+    return { x: v.x, y: v.y + p.height * fraction, z: v.z };
   }
 
   /** Canvas CSS px for a 3D point, or null when it's behind the camera or off the canvas. */
@@ -393,9 +373,16 @@ export class World3D {
     const { target } = this.rig.view;
     sceneryFade.value =
       this.rig.camera.position.distanceTo(new Vector3(target.x, 0, target.z)) * NEAR_FADE;
-    this.reconcile();
+    const dt = Math.min(0.1, (now - this.lastFrame) / 1000);
+    this.lastFrame = now;
+    this.yard.sync(this.session.sim.state.world);
+    this.critters.update(
+      { now, dt, reducedMotion: this.reducedMotion(), cameraYaw: this.rig.view.azimuth },
+      this.zone,
+    );
     this.updateRipples(now);
     this.renderer.render(this.scene, this.rig.camera);
+    this.labels.render(this.scene, this.rig.camera);
     this.notifyView();
     if (!this.readyEmitted) {
       this.readyEmitted = true;
@@ -423,92 +410,6 @@ export class World3D {
       }
       if (!still) r.mesh.scale.setScalar(1 + t * 2.5);
       (r.mesh.material as MeshBasicMaterial).opacity = 0.8 * (1 - t);
-    }
-  }
-
-  /** Brings the 3D objects in line with the sim. */
-  private reconcile(): void {
-    const { world } = this.session.sim.state;
-    this.yard.sync(world);
-
-    const seen = new Set<string>();
-    for (const animal of world.animals) {
-      seen.add(animal.id);
-      let s = this.animals.get(animal.id);
-      if (!s) {
-        s = animalStandIn(`animal:${animal.id}`);
-        this.animals.set(animal.id, s);
-        this.pickables.set(`animal:${animal.id}`, {
-          kind: 'animal',
-          id: animal.id,
-          zone: animal.zone,
-          object: s.group,
-          height: STAND_IN_HEIGHT,
-        });
-      }
-      const badges = this.session.sim.badges(animal.id);
-      s.setLook({
-        color: variantColor(animal.speciesId, animal.variantId),
-        baby: badges.includes('baby'),
-        sparkle: animal.isSparkle,
-      });
-      if (s.group.parent !== this.zones[animal.zone]) this.zones[animal.zone].add(s.group);
-      this.pickables.get(`animal:${animal.id}`)!.zone = animal.zone;
-      this.place(s.group, zoneToWorld(animal.zone, animal.position));
-    }
-    this.prune(this.animals, seen, 'animal');
-
-    const queued = new Set<string>();
-    world.gateQueue.forEach((visitor, i) => {
-      queued.add(visitor.id);
-      let s = this.visitors.get(visitor.id);
-      if (!s) {
-        s = visitorStandIn(`visitor:${visitor.id}`);
-        this.visitors.set(visitor.id, s);
-        this.zones.yard.add(s.group);
-        this.pickables.set(`visitor:${visitor.id}`, {
-          kind: 'visitor',
-          id: visitor.id,
-          zone: 'yard',
-          object: s.group,
-          height: STAND_IN_HEIGHT,
-        });
-      }
-      s.setLook({
-        color: variantColor(visitor.roll.speciesId, visitor.roll.variantId),
-        baby: false,
-        sparkle: visitor.roll.isSparkle,
-      });
-      s.setRevealed(visitor.revealed);
-      this.place(s.group, gateSlot(i));
-    });
-    this.prune(this.visitors, queued, 'visitor');
-
-    // The selection ring sits under the selected animal when it's in view.
-    const selected = this.selectedId ? this.animals.get(this.selectedId) : undefined;
-    const pick = this.selectedId ? this.pickables.get(`animal:${this.selectedId}`) : undefined;
-    this.ring.visible = !!selected && !!pick && pick.zone === this.zone;
-    if (selected && this.ring.visible) {
-      this.ring.position.x = selected.group.position.x;
-      this.ring.position.z = selected.group.position.z;
-      this.ring.scale.setScalar(selected.group.scale.x);
-    }
-  }
-
-  private place(object: Object3D, world: Vec2): void {
-    const g = worldToGround(world);
-    object.position.set(g.x, 0, g.z);
-    // Face the default camera, like the original's front-facing sprites.
-    object.rotation.y = 0;
-  }
-
-  private prune(map: Map<string, StandIn>, keep: Set<string>, kind: PickKind): void {
-    for (const [id, s] of map) {
-      if (keep.has(id)) continue;
-      s.group.removeFromParent();
-      map.delete(id);
-      this.pickables.delete(`${kind}:${id}`);
-      if (this.selectedId === id) this.selectedId = null;
     }
   }
 }

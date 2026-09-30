@@ -4,6 +4,7 @@ import {
   BufferGeometry,
   Color,
   DataTexture,
+  type Matrix4,
   Mesh,
   MeshBasicMaterial,
   MeshToonMaterial,
@@ -147,6 +148,8 @@ export interface PartOptions {
   rz?: number;
   /** Scale: a number for all axes, or per axis. */
   s?: number | [number, number, number];
+  /** Applied after scale instead of the rotation and position above (e.g. to align along a normal). */
+  matrix?: Matrix4;
 }
 
 const tmpColor = new Color();
@@ -169,10 +172,14 @@ export function part(
   const s = o.s ?? 1;
   const [sx, sy, sz] = typeof s === 'number' ? [s, s, s] : s;
   g.scale(sx, sy, sz);
-  if (o.rx) g.rotateX(o.rx);
-  if (o.ry) g.rotateY(o.ry);
-  if (o.rz) g.rotateZ(o.rz);
-  g.translate(o.x ?? 0, o.y ?? 0, o.z ?? 0);
+  if (o.matrix) {
+    g.applyMatrix4(o.matrix);
+  } else {
+    if (o.rx) g.rotateX(o.rx);
+    if (o.ry) g.rotateY(o.ry);
+    if (o.rz) g.rotateZ(o.rz);
+    g.translate(o.x ?? 0, o.y ?? 0, o.z ?? 0);
+  }
   paint(g, color);
   return g;
 }

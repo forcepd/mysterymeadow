@@ -1403,3 +1403,86 @@ The start is much busier, as intended. But because the yard fills to capacity ab
 - Headless desktop Chromium in the e2e tests draws the yard on the CPU, so each 3D test there takes 8–16 s (iPad WebKit: about 1–2 s). This is well within the timeouts, and it doesn't affect real devices.
 - The house zone's room is still the 3D-0 placeholder (3D-4).
 - Scoop Bot, finds, bowls and the house-upgrade sparkle don't show in 3D yet (3D-3).
+
+## Phase 3D-2: Animals and visitors (built 2026-09-30)
+
+### What was built
+
+**3D species (`src/world3d/animals/model.ts`)**
+
+- **Driven by the species data:** every species is built from shared 3D parts chosen by its `art` recipe in `species.ts`, the same data the original's SVG art uses. Adding a species is still data only. The parts:
+  - 5 body shapes: round, long, bird (an egg shape), tall, and pony (legs, hooves and a neck).
+  - 9 ear kinds.
+  - 12 tails, some built as chains of balls and some as smooth tubes.
+  - 7 noses.
+  - Big shiny eyes, or owl eyes.
+  - 12 markings, which bulge out of the body or face a little, like decals.
+  - 13 extras: whiskers, cheek pouches, feather wings, bat wings, flippers, spines, wool, horn, horns, mane, head tuft, moon mark, and webbed feet.
+- **Colors and Sparkle** come from `paintFor` in `art/animalSvg.ts`, so every variant's colors and Sparkle's lighter glow match the original exactly. Every animal also gets pink blush cheeks.
+- **Chibi look:** front-facing, with heads about 8% bigger than the original's. Faces tilt up 18° as if looking up at you, because the camera looks down on the yard and an upright face would be squashed.
+- **Caching:** each look (species, color, Sparkle) is one merged mesh plus its outline hull, cached and shared by every animal with that look. The biggest model is under 7,000 triangles.
+- **The mystery visitor** is a faceless dark silhouette, one flat color, like the original.
+
+**Actors (`AnimalActor.ts`, `VisitorActor.ts`, `motion.ts`, `Critters.ts`)**
+
+- **Animals, like the original's sprites:**
+  - They breathe.
+  - Every 2.5–6.5 s they amble within 0.3 units of their home spot with a hop-walk (0.1 up, every 320 ms).
+  - They walk to new wander spots at the original's speed, capped at 2.5 s per trip.
+  - They turn to face where they're going, then turn back toward the camera (a little off-center) when they stop.
+  - Babies are 65% size.
+- **Entrances:** animals walk in from the gate when a visitor comes in, and walk in through the door from the other zone. Newborns pop in at their mother and walk to their spot. Pets back from Storage pop out of the door.
+- **Exits:** animals walk to the door and shrink through it when going to the other zone. Sold and stored animals float up and shrink away.
+- **Tricks:** all 8 trick moves play when a trick is performed. The spin and roll are real 3D turns.
+- **Sparkle:** Sparkle animals have 4 twinkling colored stars around them.
+- **Grounding:** a soft round shadow under each animal, like the original's, which shrinks while it's up in the air. It costs much less than real shadows.
+- **Visitors:**
+  - While unrevealed, a visitor wobbles with a "?" bubble.
+  - Revealing it pops it into the real animal, with its name and rarity stars in the rarity color ("✦ Sparkle" when it is one), and a "No room!" bubble while it waits.
+  - Visitors shuffle along when the queue moves. One that gives up waves 👋 and walks off up the path.
+- **Labels are HTML** (Three.js CSS2DRenderer): the name under the feet, badges over the head (🤒 🍽️ 😢 🍼 🪙 ❤️ ✨, at most 2, with the illness's own icon), and the visitor bubbles and titles.
+  - They're crisp at any zoom, show color emoji, and the labels layer never takes taps.
+  - Only the showing zone's labels appear.
+  - This also fixes the original's "baby's name label floats low" issue.
+- **Reduced motion:** no breathing, ambling, hops, pops or twinkling; walks jump straight to the spot.
+- `standIns.ts` (from 3D-0) is gone.
+
+### Tests
+
+- **Unit:** 583 in total (16 new).
+  - **Every species × every variant × Sparkle (130 looks):**
+    - The feet are on the ground, at a sensible height and reach.
+    - The eyes are on the front.
+    - The variant's main color is used, including Sparkle's lighter version.
+    - Each is under the triangle budget.
+  - **Distinct and shared:** every species has its own shape, and models are shared per look. An unknown species falls back to the bunny.
+  - **Mystery visitor:** faceless and one color.
+  - **Motion:**
+    - Walking speed, with the minimum and maximum trip times, stopping exactly at the target, and the "done" callback firing once.
+    - Hop height, and instant walks with reduced motion.
+    - A delayed walk doesn't bob before it starts.
+    - Heading, amble range and timing, breathing range, and turning the short way around.
+    - Every trick starts and ends at rest.
+- **E2E:** 5 new tests × 3 browser setups (40 passed, 2 skipped).
+  - All 21 species show on screen with their names and no page errors.
+  - Badges show, and tapping on a name label still reaches the animal.
+  - A visitor goes from "?" to "Fox ★★" and "No room!" in a full yard.
+  - A sold animal leaves and its label goes.
+  - The house view only shows its own labels.
+- **Checked in a browser:** with reduced motion off, animals amble 5–17 px around their spots in 7 s. A 21-animal yard draws about 219k triangles in 40 draw calls.
+
+### Defaults chosen (please confirm or change)
+
+1. **Faces tilt up 18°** and heads are 8% bigger than the original's proportions.
+2. **Blob shadows under animals** instead of real sun shadows (cheaper, and like the original). The scenery still casts real shadows.
+3. **Labels are always drawn on top,** even when an animal is behind the house (the original did the same).
+4. **Standing animals turn back toward the camera.** They still face where they walk.
+5. **Blush cheeks on every species,** for cuteness (the original has blush too).
+
+### Known issues
+
+- **A flaky test in the 2D game:** the full e2e run (301 passed) had one failure in the original game's onboarding test (`profiles.spec.ts:61`, desktop Chromium). The tutorial's "feed" step didn't advance within 5 s while the software-rendered 3D tests were running in parallel. It passed 8 of 8 on its own, and it doesn't touch the 3D code. It was already timing-sensitive in the original (see its Phase 8 notes).
+- Headless Chrome (in the tests) has no color emoji font, so the 🪙 badge draws gray in screenshots. Real iPads and desktops show color.
+- **Coming in 3D-3:** the effects (reveal star burst, hearts, confetti, "+45 🪙", coin shower), sickness looks (sneezes, limp, shiver), hold to pet, and drag to the door.
+- **Coming in 3D-5:** pet outfits.
+- **Two small looks to tune later:** the baby dragon's wings look a bit spiky up close, and the lamb's wool hides its tail.

@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import type {} from '../../src/world3d/testHooks';
+import { SPECIES } from '../../src/config/species';
 import { buildSave, canvasReady, press, seedSave, testAnimal, testVisitor } from './helpers';
 
 /** Phase 3D-0: the Three.js world behind `?3d`, its camera, and tapping things in it. */
@@ -144,6 +145,10 @@ test.describe('3D world (?3d)', () => {
     await press(page, page.getByRole('button', { name: /House/ }));
     await expect(page.getByTestId('game-canvas')).toHaveAttribute('data-scene', 'house');
     expect(await page.evaluate(() => window.meadow3d!.projectObject('animal', 'a1'))).toBeNull();
+    // Only this zone's labels show.
+    const world = page.getByTestId('game-canvas');
+    await expect(world.getByText('Kitten', { exact: true })).toBeVisible();
+    await expect(world.getByText('Bunny', { exact: true })).toBeHidden();
     await tapAt(page, await whereIs(page, 'animal', 'a2'));
     await expect(page.getByRole('complementary', { name: /kitten card/i })).toBeVisible();
     await press(page, page.getByRole('button', { name: /Yard/ }));
@@ -201,5 +206,95 @@ test.describe('3D world (?3d)', () => {
     const stats = await page.evaluate(() => window.meadow3d!.stats());
     expect(stats.calls).toBeLessThan(150);
     expect(stats.triangles).toBeLessThan(300_000);
+  });
+
+  test('every species shows up in 3D, with its name under it', async ({ page }) => {
+    const errors: string[] = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await seedSave(
+      page,
+      buildSave((s, now) => {
+        SPECIES.forEach((sp, i) => {
+          s.world.animals.push(
+            testAnimal(now, {
+              id: `s${i}`,
+              speciesId: sp.id,
+              variantId: sp.variants[i % sp.variants.length]!.id,
+              rarity: sp.rarity,
+              isSparkle: i % 5 === 0,
+              position: { x: (i % 7) / 6.4 + 0.02, y: Math.floor(i / 7) / 2.2 + 0.05 },
+            }),
+          );
+        });
+      }),
+    );
+    await page.goto('./?3d');
+    await canvasReady(page);
+    const world = page.getByTestId('game-canvas');
+    for (const [i, sp] of SPECIES.entries()) {
+      await whereIs(page, 'animal', `s${i}`);
+      await expect(world.getByText(sp.name, { exact: true })).toBeVisible();
+    }
+    expect(errors).toEqual([]);
+  });
+
+  test('badges float over animals, and labels never block taps', async ({ page }) => {
+    await seedSave(
+      page,
+      buildSave((s, now) => {
+        s.world.animals.push(testAnimal(now, { id: 'a1', name: 'Biscuit' }));
+      }),
+    );
+    await page.goto('./?3d');
+    await canvasReady(page);
+    const world = page.getByTestId('game-canvas');
+    const name = world.getByText('Biscuit', { exact: true });
+    await expect(name).toBeVisible();
+    // Ready to sell: the coin badge.
+    await expect(world.getByText('🪙')).toBeVisible();
+    // Tapping right on the name label still reaches the animal.
+    const box = (await name.boundingBox())!;
+    await tapAt(page, { x: box.x + box.width / 2, y: box.y + box.height / 2 });
+    await expect(page.getByRole('complementary', { name: /biscuit card/i })).toBeVisible();
+  });
+
+  test('a mystery visitor shows "?", then its name and stars, and "No room!" in a full yard', async ({
+    page,
+  }) => {
+    await seedSave(
+      page,
+      buildSave((s, now) => {
+        for (let i = 0; i < 6; i++) {
+          s.world.animals.push(testAnimal(now, { id: `a${i}`, position: { x: i / 6, y: 0.8 } }));
+        }
+        s.world.gateQueue.push(testVisitor(now));
+      }),
+    );
+    await page.goto('./?3d');
+    await canvasReady(page);
+    const world = page.getByTestId('game-canvas');
+    await expect(world.getByText('?', { exact: true })).toBeVisible();
+    await tapAt(page, await whereIs(page, 'visitor', 'v900'));
+    await expect(world.getByText('No room!')).toBeVisible();
+    await expect(world.getByText(/Fox\s+★★/)).toBeVisible();
+    await expect(world.getByText('?', { exact: true })).toBeHidden();
+    await expect(page.getByTestId('capacity')).toHaveText('🐾6/6');
+  });
+
+  test('a sold animal says goodbye and leaves the yard', async ({ page }) => {
+    await seedSave(
+      page,
+      buildSave((s, now) => s.world.animals.push(testAnimal(now, { id: 'a1' }))),
+    );
+    await page.goto('./?3d');
+    await canvasReady(page);
+    await tapAt(page, await whereIs(page, 'animal', 'a1'));
+    const card = page.getByRole('complementary', { name: /bunny card/i });
+    await press(page, card.getByRole('button', { name: /sell for 20/i }));
+    await expect(page.getByTestId('coins')).toHaveText('120');
+    await expect
+      .poll(() => page.evaluate(() => window.meadow3d!.projectObject('animal', 'a1')))
+      .toBeNull();
+    await expect(page.getByTestId('game-canvas').getByText('Bunny', { exact: true })).toBeHidden();
   });
 });
