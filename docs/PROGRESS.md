@@ -1575,3 +1575,11 @@ With reduced motion, everything stays still and "achoo!" and "z z" stay put.
 - The room is still the 3D-0 placeholder. Its doormat is brown with no "🌳 Outside" label yet (3D-4).
 - Decorate mode (moving bowls and other items, hiding finds while decorating) comes in 3D-4.
 - Headless Chrome draws the 🪙 emoji gray (fine on devices).
+
+### Fix after 3D-3: tapping poop (2026-09-30)
+
+- **Bug (reported in play):** tapping poop often opened the animal's card instead of cleaning it.
+  - Poop lands where its animal stands, and the animal only ambles about 0.3 units away. The animal's generous tap area covered the poop, and the ray reached the animal's area first.
+  - The e2e test missed it because its poop had no animal nearby.
+- **Fix:** when a tap lands on several tap areas at once, the one whose on-screen middle is nearest the finger wins. A tap on the poop cleans it, and a tap on the animal's body still opens its card. A find's middle is now the floating find itself, not the ground under it.
+- **New e2e test:** two poops right under an animal. Tapping one cleans it, with no card, and tapping the animal opens its card, with the other poop still there.

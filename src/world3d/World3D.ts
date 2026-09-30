@@ -303,16 +303,31 @@ export class World3D {
     this.raycaster.setFromCamera(this.ndc(p), this.rig.camera);
     const hits = this.raycaster.intersectObject(this.zones[this.zone], true);
     const live = this.live();
+    // Several tap areas under the finger (poop usually lies right where its animal stands):
+    // take the one whose middle is nearest the finger, so a tap on the poop cleans it and a
+    // tap on the animal opens its card.
+    const under = new Set<Pickable>();
     for (const hit of hits) {
       const key = hit.object.userData.pickKey as string | undefined;
       const pickable = key ? live.get(key) : undefined;
-      if (pickable) return pickable;
+      if (pickable) under.add(pickable);
     }
+    if (under.size === 1) return [...under][0]!;
+    if (under.size > 1) return this.nearest(under, p, Infinity);
     // Missed everything: take the nearest object whose middle is within a finger's reach, so
     // far-away or zoomed-out things still get a decent tap target.
+    return this.nearest(live.values(), p, MIN_TAP_RADIUS);
+  }
+
+  /** Of these, the one whose middle is nearest the point on screen (within `reach` px). */
+  private nearest(
+    candidates: Iterable<Pickable>,
+    p: { x: number; y: number },
+    reach: number,
+  ): Pickable | null {
     let best: Pickable | null = null;
-    let bestDist = MIN_TAP_RADIUS;
-    for (const pickable of live.values()) {
+    let bestDist = reach;
+    for (const pickable of candidates) {
       const s = this.toCanvas(this.anchorOf(pickable, 0.5));
       if (!s) continue;
       const d = Math.hypot(s.x - p.x, s.y - p.y);

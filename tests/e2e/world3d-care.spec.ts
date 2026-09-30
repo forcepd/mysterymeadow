@@ -63,6 +63,28 @@ test.describe('3D care and effects', () => {
       .toBeNull();
   });
 
+  test('poop right under its animal: tapping the poop cleans it, tapping the animal opens its card', async ({
+    page,
+  }) => {
+    // Poop lands where the animal stands, so their tap areas overlap.
+    await start(page, (s, now) => {
+      s.world.animals.push(testAnimal(now, { id: 'a1', position: { x: 0.4, y: 0.6 } }));
+      s.world.poops.push(
+        { id: 'p1', zone: 'yard', position: { x: 0.4, y: 0.6 } } as never,
+        { id: 'p2', zone: 'yard', position: { x: 0.4, y: 0.6 } } as never,
+      );
+    });
+    await tapAt(page, await whereIs(page, 'poop', 'p1'));
+    await expect
+      .poll(() => page.evaluate(() => window.meadow3d!.projectObject('poop', 'p1')))
+      .toBeNull();
+    await expect(page.getByRole('complementary', { name: /bunny card/i })).toBeHidden();
+    // p2 is still there under it; the animal's own middle picks the animal.
+    await tapAt(page, await whereIs(page, 'animal', 'a1'));
+    await expect(page.getByRole('complementary', { name: /bunny card/i })).toBeVisible();
+    expect(await page.evaluate(() => window.meadow3d!.projectObject('poop', 'p2'))).not.toBeNull();
+  });
+
   test('tapping a coin in the yard adds coins, and coins fly to the counter', async ({ page }) => {
     await start(page, (s, now) => {
       s.world.finds.push({

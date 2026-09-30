@@ -298,7 +298,8 @@ export class Care {
       const thing: FindThing = {
         root,
         zone: 'yard',
-        height: FIND_HEIGHT,
+        // Its middle is the floating find itself.
+        height: FIND_HEIGHT * 2,
         leaving: false,
         model,
         kind: find.kind,
