@@ -1,0 +1,169 @@
+.buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.secondary {
+  background: #fff;
+  color: var(--color-ink);
+  box-shadow: 0 4px 0 var(--color-panel-border);
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.toggle input {
+  width: 28px;
+  height: 28px;
+  accent-color: var(--color-accent-dark);
+}
+
+.slider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.slider > span:first-child {
+  min-width: 110px;
+}
+
+.slider input {
+  flex: 1;
+  max-width: 320px;
+  height: 48px;
+  accent-color: var(--color-accent-dark);
+  touch-action: pan-x;
+}
+
+.slider input:disabled {
+  opacity: 0.4;
+}
+
+.sliderValue {
+  min-width: 36px;
+  text-align: right;
+}
+
+.number {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.number input {
+  width: 90px;
+  min-height: 48px;
+  padding: 0 10px;
+  border: 3px solid var(--color-panel-border);
+  border-radius: 12px;
+  font: inherit;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.parent {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: #fbf6e8;
+}
+
+.activity {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+  font-size: 16px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.when {
+  opacity: 0.6;
+  font-variant-numeric: tabular-nums;
+}
+
+.players {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.player {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.playerName {
+  font-size: 18px;
+  min-width: 140px;
+}
+
+.small {
+  min-height: 48px;
+  padding: 0 14px;
+  border: 3px solid var(--color-panel-border);
+  border-radius: var(--radius-pill);
+  background: #fff;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--color-ink);
+  cursor: pointer;
+}
+
+.renameForm {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.renameForm input {
+  min-height: 48px;
+  width: 180px;
+  padding: 0 10px;
+  border: 3px solid var(--color-panel-border);
+  border-radius: 12px;
+  font: inherit;
+  font-size: 18px;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.confirm {
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: #fff1d6;
+  font-weight: 700;
+}
+
+.confirm p {
+  margin: 0 0 10px;
+}

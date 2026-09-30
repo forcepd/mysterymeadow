@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022"],
+    "types": [],
+    "outDir": "node_modules/.tmp/sim",
+    "tsBuildInfoFile": "node_modules/.tmp/sim.tsbuildinfo"
+  },
+  "include": ["src/sim", "src/config"]
+}

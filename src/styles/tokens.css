@@ -1,0 +1,25 @@
+:root {
+  --font-body: 'Nunito', system-ui, sans-serif;
+  --font-size-body: 18px;
+
+  --color-grass: #bfe8a8;
+  --color-grass-dark: #7cc46a;
+  --color-ink: #2f3a2c;
+  --color-panel: #fffdf6;
+  --color-panel-border: #e3d9bf;
+  --color-accent: #ff8fb1;
+  --color-accent-dark: #e0628b;
+  --color-coin: #f5b93a;
+  --color-gem: #ff6fae;
+
+  --radius-lg: 20px;
+  --radius-pill: 999px;
+  --shadow-soft: 0 4px 0 rgb(0 0 0 / 0.12);
+
+  --touch-min: 48px;
+
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+}

@@ -1,0 +1,84 @@
+.pad {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.hint {
+  margin: 0;
+  font-size: 16px;
+  opacity: 0.75;
+  text-align: center;
+}
+
+.dots {
+  display: flex;
+  gap: 14px;
+  padding: 6px;
+}
+
+.dot,
+.dotOn {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 3px solid var(--color-ink);
+}
+
+.dotOn {
+  background: var(--color-ink);
+}
+
+.error {
+  margin: 0;
+  color: #a33b22;
+  font-weight: 800;
+}
+
+.keys {
+  display: grid;
+  grid-template-columns: repeat(3, 72px);
+  gap: 10px;
+}
+
+.key,
+.keySmall {
+  height: 64px;
+  border: 3px solid var(--color-panel-border);
+  border-radius: 18px;
+  background: #fff;
+  font: inherit;
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--color-ink);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.keySmall {
+  font-size: 16px;
+}
+
+.key:active,
+.keySmall:active {
+  background: #f3ecd8;
+}
+
+.forgot {
+  min-height: 48px;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 16px;
+  text-decoration: underline;
+  color: var(--color-ink);
+  cursor: pointer;
+}

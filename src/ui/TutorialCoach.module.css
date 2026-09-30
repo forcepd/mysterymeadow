@@ -1,0 +1,52 @@
+/* Coach bubble, top center under the HUD (the gate is top-right, the yard below). */
+.coach {
+  position: absolute;
+  top: calc(78px + var(--safe-top));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: min(620px, calc(100% - 24px));
+  padding: 10px 14px;
+  pointer-events: auto;
+  z-index: 5;
+  border-color: #ffb3cb;
+  animation: bob 2.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .coach {
+    animation: none;
+  }
+}
+
+@keyframes bob {
+  50% {
+    transform: translate(-50%, -4px);
+  }
+}
+
+.icon {
+  font-size: 36px;
+}
+
+.text {
+  flex: 1;
+  margin: 0;
+  font-size: 19px;
+  font-weight: 700;
+}
+
+.skip {
+  min-height: 48px;
+  padding: 0 12px;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 15px;
+  text-decoration: underline;
+  color: var(--color-ink);
+  cursor: pointer;
+  white-space: nowrap;
+}

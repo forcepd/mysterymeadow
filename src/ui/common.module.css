@@ -1,0 +1,87 @@
+/* Shared building blocks for overlay UI. Every tappable thing is at least 48x48. */
+
+.panel {
+  border-radius: var(--radius-lg);
+  background: var(--color-panel);
+  border: 3px solid var(--color-panel-border);
+  box-shadow: var(--shadow-soft);
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--touch-min);
+  padding: 0 18px 0 10px;
+  border-radius: var(--radius-pill);
+  background: var(--color-panel);
+  border: 3px solid var(--color-panel-border);
+  box-shadow: var(--shadow-soft);
+  font-weight: 800;
+  font-size: 22px;
+  white-space: nowrap;
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: var(--touch-min);
+  min-height: 56px;
+  padding: 0 22px;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: var(--color-accent);
+  box-shadow: 0 4px 0 var(--color-accent-dark);
+  color: #fff;
+  font-weight: 800;
+  font-size: 20px;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: transform 80ms ease;
+}
+
+.button:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 var(--color-accent-dark);
+}
+
+/* Looks disabled but still takes taps, so it can explain why (DESIGN 17.3). */
+.button[aria-disabled='true'] {
+  background: #c9c4b5;
+  box-shadow: 0 4px 0 #a39e8f;
+}
+
+.iconButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--touch-min);
+  height: var(--touch-min);
+  border: 3px solid var(--color-panel-border);
+  border-radius: 50%;
+  background: #fff;
+  font-size: 22px;
+  font-weight: 800;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.button:focus-visible,
+.iconButton:focus-visible,
+.link:focus-visible {
+  outline: 4px solid var(--color-ink);
+  outline-offset: 2px;
+}
+
+.link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--touch-min);
+  min-height: var(--touch-min);
+  padding: 0 12px;
+  color: var(--color-ink);
+  font-size: 16px;
+}

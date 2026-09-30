@@ -1,0 +1,184 @@
+/* The overlay covers the screen but lets taps fall through to the canvas,
+   except on the actual UI elements, which opt back in. */
+.overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  padding: calc(12px + var(--safe-top)) calc(12px + var(--safe-right))
+    calc(12px + var(--safe-bottom)) calc(12px + var(--safe-left));
+}
+
+.overlay > * {
+  pointer-events: auto;
+}
+
+.topLeft,
+.topRight {
+  position: absolute;
+  top: calc(12px + var(--safe-top));
+  display: flex;
+  gap: 10px;
+}
+
+.topLeft {
+  left: calc(12px + var(--safe-left));
+}
+
+.topRight {
+  right: calc(12px + var(--safe-right));
+}
+
+.icon {
+  display: inline-block;
+  flex: none;
+  width: 28px;
+  height: 28px;
+}
+
+.coin {
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #ffe38a, var(--color-coin));
+  border: 2px solid #d99a1e;
+}
+
+.gem {
+  background: var(--color-gem);
+  clip-path: polygon(50% 0, 100% 38%, 80% 100%, 20% 100%, 0 38%);
+}
+
+.emoji {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.crowded {
+  background: #ffe1d6;
+  border-color: #f0a58a;
+}
+
+.timer {
+  font-variant-numeric: tabular-nums;
+  font-size: 20px;
+}
+
+.privacy {
+  position: absolute;
+  left: calc(8px + var(--safe-left));
+  bottom: calc(8px + var(--safe-bottom));
+  opacity: 0.7;
+}
+
+.heart {
+  color: #e0628b;
+}
+
+/* Menu buttons, bottom-left above the Privacy link. */
+.nav {
+  position: absolute;
+  left: calc(12px + var(--safe-left));
+  bottom: calc(44px + var(--safe-bottom));
+  display: flex;
+  gap: 8px;
+}
+
+.nav button {
+  font: inherit;
+  font-weight: 800;
+  font-size: 18px;
+  padding: 0 14px 0 8px;
+  color: var(--color-ink);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.nav button:focus-visible {
+  outline: 4px solid var(--color-ink);
+  outline-offset: 2px;
+}
+
+.nav[hidden] {
+  display: none;
+}
+
+.zone {
+  background: #e3f5ef;
+  border-color: #9fd3c1;
+}
+
+.beds {
+  margin-left: 4px;
+  padding: 0 8px;
+  border-radius: var(--radius-pill);
+  background: #fff;
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The avatar's face in a circle: opens My style (Wardrobe and Boutique). */
+.me {
+  position: relative;
+  width: var(--touch-min);
+  height: var(--touch-min);
+  flex: none;
+  padding: 0;
+  overflow: hidden;
+  border: 3px solid var(--color-panel-border);
+  border-radius: 50%;
+  background: #d9f1ea;
+  box-shadow: var(--shadow-soft);
+  cursor: pointer;
+}
+
+.meFace {
+  position: absolute;
+  left: 50%;
+  top: -8px;
+  transform: translateX(-50%);
+}
+
+.gear {
+  position: absolute;
+  right: calc(12px + var(--safe-right));
+  bottom: calc(44px + var(--safe-bottom));
+  width: 56px;
+  height: 56px;
+  font-size: 26px;
+}
+
+.gear[hidden] {
+  display: none;
+}
+
+/* Starter goals ready to collect: a warm glow and a count. */
+.goalsReady {
+  background: #fff4c7;
+  border-color: #f0c43a;
+}
+
+/* Only the count pulses, so the button itself stays put under a finger. */
+.goalsReady .badge {
+  animation: nudge 1.6s ease-in-out infinite;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 6px;
+  border-radius: 14px;
+  background: #e0628b;
+  color: #fff;
+  font-size: 18px;
+}
+
+@keyframes nudge {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.2);
+  }
+}

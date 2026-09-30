@@ -1,0 +1,85 @@
+.body {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  min-width: 170px;
+  padding: 14px;
+  border-radius: 18px;
+  background: #fbf6e8;
+}
+
+.worn {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-weight: 700;
+  text-align: center;
+}
+
+.slots {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 300px;
+}
+
+.slot {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 100px;
+  min-height: 76px;
+  padding: 6px;
+  border: 3px solid var(--color-panel-border);
+  border-radius: 14px;
+  background: #fff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--color-ink);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.on {
+  border-color: var(--color-accent-dark);
+  background: #ffe6ef;
+}
+
+.itemIcon {
+  font-size: 28px;
+  line-height: 1.1;
+}
+
+.link {
+  min-height: 48px;
+  padding: 0 6px;
+  border: none;
+  background: none;
+  font: inherit;
+  font-weight: 800;
+  text-decoration: underline;
+  color: var(--color-ink);
+  cursor: pointer;
+}

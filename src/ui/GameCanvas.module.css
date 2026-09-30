@@ -1,0 +1,11 @@
+.host {
+  position: absolute;
+  inset: 0;
+  /* The world handles all gestures itself: no browser scroll/zoom on the canvas. */
+  touch-action: none;
+}
+
+.host canvas {
+  display: block;
+  touch-action: none;
+}

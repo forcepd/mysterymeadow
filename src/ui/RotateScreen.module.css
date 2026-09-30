@@ -1,0 +1,46 @@
+.screen {
+  display: none;
+}
+
+@media (orientation: portrait) {
+  .screen {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 32px;
+    padding: 24px;
+    background: var(--color-grass);
+    text-align: center;
+  }
+}
+
+.device {
+  width: 90px;
+  height: 130px;
+  border: 8px solid var(--color-ink);
+  border-radius: 18px;
+  background: var(--color-panel);
+  animation: turn 2.4s ease-in-out infinite;
+}
+
+.text {
+  margin: 0;
+  max-width: 320px;
+  font-size: 28px;
+  font-weight: 800;
+}
+
+@keyframes turn {
+  0%,
+  25% {
+    transform: rotate(0deg);
+  }
+  55%,
+  100% {
+    transform: rotate(-90deg);
+  }
+}

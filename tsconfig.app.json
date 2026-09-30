@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "types": ["vite/client", "vite-plugin-pwa/client"],
+    "outDir": "node_modules/.tmp/app",
+    "tsBuildInfoFile": "node_modules/.tmp/app.tsbuildinfo"
+  },
+  "include": ["src"],
+  "exclude": ["src/sim", "src/config"],
+  "references": [{ "path": "./tsconfig.sim.json" }]
+}

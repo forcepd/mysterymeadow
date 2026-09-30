@@ -1,0 +1,99 @@
+.tabs {
+  display: flex;
+  gap: 8px;
+  flex: 1;
+}
+
+.tab,
+.tabOn {
+  min-height: 52px;
+  padding: 0 18px;
+  border: 3px solid var(--color-panel-border);
+  border-radius: var(--radius-pill);
+  background: #fff;
+  font: inherit;
+  font-weight: 800;
+  font-size: 20px;
+  color: var(--color-ink);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.tabOn {
+  background: #ffe6ef;
+  border-color: var(--color-accent-dark);
+}
+
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.getGems {
+  background: var(--color-gem);
+}
+
+.outfits {
+  display: flex;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.outfit {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.outfitWear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 80px;
+  border: 3px solid var(--color-panel-border);
+  border-radius: 14px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 80px;
+  border: 3px dashed var(--color-panel-border);
+  border-radius: 14px;
+  font-size: 13px;
+  font-weight: 700;
+  opacity: 0.7;
+}
+
+.saveHere {
+  min-height: 48px;
+  padding: 0 10px;
+  border: 3px solid var(--color-panel-border);
+  border-radius: var(--radius-pill);
+  background: #fff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--color-ink);
+  cursor: pointer;
+}
+
+.gems {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 10px;
+}

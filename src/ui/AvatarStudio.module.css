@@ -1,0 +1,139 @@
+.studio {
+  display: flex;
+  gap: 16px;
+  min-height: 0;
+}
+
+.preview {
+  flex: none;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: 190px;
+  padding: 10px;
+  border-radius: 20px;
+  background: radial-gradient(circle at 50% 80%, #d9f1ea, #fff6e3 70%);
+}
+
+.side {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tab,
+.tabOn {
+  min-height: 48px;
+  padding: 0 12px;
+  border: 3px solid var(--color-panel-border);
+  border-radius: var(--radius-pill);
+  background: #fff;
+  font: inherit;
+  font-weight: 800;
+  font-size: 16px;
+  color: var(--color-ink);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.tabOn {
+  background: #ffe6ef;
+  border-color: var(--color-accent-dark);
+}
+
+.slots {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  max-height: 46dvh;
+}
+
+.slotName {
+  margin: 0 0 4px;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 84px;
+  min-height: 72px;
+  padding: 6px 4px;
+  border: 3px solid var(--color-panel-border);
+  border-radius: 14px;
+  background: #fff;
+  font: inherit;
+  color: var(--color-ink);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.on {
+  border-color: var(--color-accent-dark);
+  background: #ffe6ef;
+}
+
+.locked {
+  opacity: 0.6;
+  border-style: dashed;
+}
+
+.swatch {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid #4a3b33;
+  font-size: 18px;
+}
+
+.none {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  font-weight: 800;
+  opacity: 0.5;
+}
+
+.itemName {
+  max-width: 100%;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.1;
+  text-align: center;
+}
+
+.price {
+  position: absolute;
+  top: -8px;
+  right: -6px;
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+  background: var(--color-gem);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+}

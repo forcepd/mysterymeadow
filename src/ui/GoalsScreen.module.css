@@ -1,0 +1,73 @@
+.screen {
+  width: min(720px, 100%);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.goal {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 64px;
+  padding: 8px 12px;
+  border-radius: 16px;
+  background: #fbf6e8;
+  border: 3px solid transparent;
+}
+
+.ready {
+  background: #fff4c7;
+  border-color: #f0c43a;
+}
+
+.claimed {
+  opacity: 0.6;
+}
+
+.icon {
+  font-size: 32px;
+  line-height: 1;
+  flex: none;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.text {
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.bar {
+  display: block;
+  height: 10px;
+  border-radius: 5px;
+  background: #eadfc6;
+  overflow: hidden;
+}
+
+.bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 5px;
+  background: #7cc46a;
+  transition: width 300ms ease;
+}
+
+.count {
+  font-size: 16px;
+  font-weight: 700;
+  opacity: 0.75;
+}

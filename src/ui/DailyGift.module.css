@@ -1,0 +1,40 @@
+.box {
+  width: 140px;
+  height: 140px;
+  border: none;
+  border-radius: 28px;
+  background: #fff4c7;
+  box-shadow: 0 6px 0 #f0c43a;
+  font-size: 96px;
+  line-height: 1;
+  cursor: pointer;
+  animation: wiggle 1.4s ease-in-out infinite;
+  touch-action: manipulation;
+}
+
+.box:active {
+  transform: scale(0.95);
+}
+
+.reward {
+  margin: 0;
+  font-size: 30px;
+  font-weight: 800;
+}
+
+@keyframes wiggle {
+  0%,
+  60%,
+  100% {
+    transform: rotate(0);
+  }
+  70% {
+    transform: rotate(-8deg);
+  }
+  80% {
+    transform: rotate(8deg);
+  }
+  90% {
+    transform: rotate(-4deg);
+  }
+}

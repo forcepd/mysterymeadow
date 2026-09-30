@@ -1,0 +1,162 @@
+/* Decorate tray along the bottom. The room zooms out above it (see ZoneScene). */
+.bar {
+  position: absolute;
+  left: calc(12px + var(--safe-left));
+  right: calc(12px + var(--safe-right));
+  bottom: calc(10px + var(--safe-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 14px;
+  pointer-events: auto;
+  z-index: 10;
+}
+
+.header,
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.title {
+  font-size: 20px;
+}
+
+.stat {
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  background: #fff1c9;
+  font-weight: 800;
+  font-size: 16px;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.small {
+  min-height: 48px;
+  padding: 0 16px;
+  font-size: 17px;
+}
+
+.secondary {
+  background: #f6c65b;
+  box-shadow: 0 4px 0 #d49a2a;
+  color: var(--color-ink);
+}
+
+.tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.tab,
+.tabOn {
+  min-height: 48px;
+  padding: 0 14px;
+  border: 3px solid var(--color-panel-border);
+  border-radius: var(--radius-pill);
+  background: #fff;
+  font: inherit;
+  font-weight: 800;
+  font-size: 16px;
+  color: var(--color-ink);
+  cursor: pointer;
+}
+
+.tabOn {
+  background: #e3f5ef;
+  border-color: #5bbfa8;
+}
+
+.selectedName {
+  font-weight: 800;
+  font-size: 18px;
+}
+
+.hint {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  opacity: 0.75;
+}
+
+.tray {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.item {
+  position: relative;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 92px;
+  min-height: 76px;
+  padding: 6px 4px;
+  border: 3px solid var(--color-panel-border);
+  border-radius: 14px;
+  background: #fff;
+  font: inherit;
+  color: var(--color-ink);
+  cursor: pointer;
+  /* Dragging an item into the room needs the finger to itself. */
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.picked {
+  border-color: var(--color-accent-dark);
+  background: #ffe6ef;
+}
+
+.itemIcon {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.swatch {
+  width: 40px;
+  height: 28px;
+  border-radius: 8px;
+  border: 2px solid #4a3b33;
+}
+
+.itemName {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.count {
+  position: absolute;
+  top: 2px;
+  right: 6px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.empty {
+  margin: 8px 0;
+  font-size: 16px;
+}
+
+.message {
+  margin: 0;
+  padding: 6px 12px;
+  border-radius: 12px;
+  background: #fff1d6;
+  font-weight: 700;
+}

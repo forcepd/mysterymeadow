@@ -1,0 +1,40 @@
+.grant {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.input {
+  width: 140px;
+  min-height: 56px;
+  padding: 0 12px;
+  border: 3px solid var(--color-panel-border);
+  border-radius: 14px;
+  font: inherit;
+  font-size: 20px;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.secondary {
+  background: #fff;
+  color: var(--color-ink);
+  box-shadow: 0 4px 0 var(--color-panel-border);
+}
+
+.ok,
+.error {
+  margin: 0;
+  font-weight: 800;
+}
+
+.error {
+  color: #a33b22;
+}

@@ -1,0 +1,23 @@
+.screen {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: var(--color-grass);
+}
+
+.box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 24px 32px;
+  font-size: 20px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.big {
+  margin: 0;
+  font-size: 56px;
+}
