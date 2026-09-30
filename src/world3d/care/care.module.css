@@ -1,0 +1,23 @@
+/* The "!" over an empty food bowl. */
+.alert {
+  padding: 0 12px;
+  border-radius: 999px;
+  background: #e0628b;
+  color: #ffffff;
+  font: 800 26px/1.2 var(--font-body, Nunito, system-ui, sans-serif);
+  pointer-events: none;
+}
+
+.alert > span {
+  display: inline-block;
+}
+
+.alert[data-pulse='true'] > span {
+  animation: pulse 0.9s ease-in-out infinite alternate;
+}
+
+@keyframes pulse {
+  to {
+    transform: scale(1.2);
+  }
+}

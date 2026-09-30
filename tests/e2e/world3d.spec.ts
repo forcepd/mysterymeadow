@@ -1,48 +1,13 @@
 import { expect, test, type Page } from '@playwright/test';
-import type {} from '../../src/world3d/testHooks';
 import { SPECIES } from '../../src/config/species';
 import { buildSave, canvasReady, press, seedSave, testAnimal, testVisitor } from './helpers';
+import { drag, emptyGround, tapAt, view, whereIs } from './helpers3d';
 
 /** Phase 3D-0: the Three.js world behind `?3d`, its camera, and tapping things in it. */
 
 test.beforeEach(async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
 });
-
-const canvas = (page: Page) => page.locator('[data-testid="game-canvas"] canvas');
-
-/** Where an animal or visitor is on the page right now (the camera can move). */
-async function whereIs(page: Page, kind: 'animal' | 'visitor', id: string) {
-  const p = await page.evaluate(([k, i]) => window.meadow3d!.projectObject(k, i), [kind, id] as [
-    'animal' | 'visitor',
-    string,
-  ]);
-  expect(p, `${kind} ${id} is on screen`).not.toBeNull();
-  return p!;
-}
-
-/** Taps a page point on the canvas (touch on iPads, mouse on desktop). */
-async function tapAt(page: Page, at: { x: number; y: number }) {
-  const box = (await canvas(page).boundingBox())!;
-  await press(page, canvas(page), { position: { x: at.x - box.x, y: at.y - box.y } });
-}
-
-/** Drags across the canvas with the mouse, in steps (pointer events on every device). */
-async function drag(page: Page, from: { x: number; y: number }, by: { x: number; y: number }) {
-  await page.mouse.move(from.x, from.y);
-  await page.mouse.down();
-  for (let i = 1; i <= 10; i++) {
-    await page.mouse.move(from.x + (by.x * i) / 10, from.y + (by.y * i) / 10);
-  }
-  await page.mouse.up();
-}
-
-const view = (page: Page) => page.evaluate(() => window.meadow3d!.view());
-
-/** Empty grass in the middle of the yard, below the fence and between the animals. */
-async function emptyGround(page: Page) {
-  return (await page.evaluate(() => window.meadow3d!.projectWorld({ x: 330, y: 620 })))!;
-}
 
 async function open3D(page: Page) {
   await seedSave(

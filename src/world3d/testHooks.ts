@@ -1,4 +1,5 @@
 import type { Vec2 } from '../sim/types';
+import type { PickKind } from './pick';
 
 export interface ScreenPoint {
   x: number;
@@ -18,11 +19,13 @@ export interface ViewInfo {
  * wherever the camera is. Page coordinates (CSS px).
  */
 export interface Meadow3DHooks {
-  projectObject(kind: 'animal' | 'visitor', id: string): ScreenPoint | null;
+  projectObject(kind: PickKind, id: string): ScreenPoint | null;
   projectWorld(p: Vec2, height?: number): ScreenPoint | null;
   view(): ViewInfo;
   /** What the last frame drew (draw calls and triangles), for the performance budget. */
   stats(): { calls: number; triangles: number };
+  /** Effect particles alive right now. */
+  particles(): number;
 }
 
 declare global {

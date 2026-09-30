@@ -22,6 +22,7 @@ export default function GameCanvas3D() {
       projectWorld: (p, height) => world.projectWorld(p, height),
       view: () => world.view(),
       stats: () => world.stats(),
+      particles: () => world.particles(),
     };
     let taps = 0;
     const offs = [

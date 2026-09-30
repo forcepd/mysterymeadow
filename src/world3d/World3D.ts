@@ -26,8 +26,14 @@ import { buildHousePlaceholder } from './placeholders';
 import { sceneryFade } from './art/toon';
 import { Yard } from './yard/Yard';
 import { SKY_HORIZON } from './yard/scenery';
-import { Critters, type Pickable, type PickKind } from './animals/Critters';
+import { Critters } from './animals/Critters';
+import { pickKey, type Pickable, type PickKind } from './pick';
 import { labelStyles } from './animals/labels';
+import { animalPress } from './animals/animalPress';
+import { Care, type FxHost } from './care/Care';
+import { Effects3D } from './fx/Effects3D';
+import fxStyles from './fx/fx.module.css';
+import { doorOf } from '../game/layout';
 
 /** Device pixel ratio cap: sharp on Retina iPads without drawing 9x the pixels on 3x screens. */
 const MAX_PIXEL_RATIO = 2;
@@ -35,11 +41,6 @@ const MAX_PIXEL_RATIO = 2;
 const MIN_TAP_RADIUS = 30;
 /** Scenery closer than this fraction of the camera's distance fades away. */
 const NEAR_FADE = 0.6;
-
-interface Ripple {
-  mesh: Mesh;
-  start: number;
-}
 
 /**
  * The Three.js world (replaces the Phaser game). Render only, like the original scenes: every
@@ -55,10 +56,15 @@ export class World3D {
   private readonly gestures: GestureRecognizer;
   private readonly raycaster = new Raycaster();
   private readonly critters: Critters;
+  private readonly care: Care;
+  private readonly fx: Effects3D;
+  /** Flying coins (DOM), over the canvas. */
+  private readonly overlay = document.createElement('div');
+  /** Glows at the door while an animal is carried (drop it here). */
+  private readonly doorRing: Mesh;
+  private doorState: 'off' | 'far' | 'near' = 'off';
   /** Names, badges and bubbles over the animals (HTML, so crisp at any zoom). */
   private readonly labels = new CSS2DRenderer();
-  private readonly ripples: Ripple[] = [];
-  private readonly rippleGeo = new RingGeometry(0.15, 0.22, 32);
   private atHome = true;
   private lastFrame = performance.now();
   private readonly offs: (() => void)[] = [];
@@ -79,6 +85,13 @@ export class World3D {
     host.appendChild(this.renderer.domElement);
     this.labels.domElement.className = labelStyles.layer!;
     host.appendChild(this.labels.domElement);
+    this.overlay.className = fxStyles.overlay!;
+    host.appendChild(this.overlay);
+    this.fx = new Effects3D(this.overlay, () => this.reducedMotion());
+    const fxHost: FxHost = {
+      fx: this.fx,
+      coins: (from, count) => this.coinsFrom(from, count),
+    };
 
     this.scene.background = new Color(SKY_HORIZON);
     this.scene.fog = new Fog(SKY_HORIZON, 32, 85);
@@ -86,8 +99,21 @@ export class World3D {
 
     this.zones = { yard: this.yard.group, house: buildHousePlaceholder() };
     this.zones.house.visible = false;
-    this.critters = new Critters(session, this.zones);
-    this.scene.add(this.zones.yard, this.zones.house, this.critters.selectionRing);
+    this.critters = new Critters(session, this.zones, fxHost);
+    this.care = new Care(session, this.zones, fxHost);
+    this.doorRing = new Mesh(
+      new RingGeometry(0.75, 0.95, 48),
+      new MeshBasicMaterial({
+        color: 0xffffff,
+        transparent: true,
+        opacity: 0.7,
+        depthWrite: false,
+      }),
+    );
+    this.doorRing.rotation.x = -Math.PI / 2;
+    this.doorRing.visible = false;
+    this.doorRing.raycast = () => {};
+    this.scene.add(this.zones.yard, this.zones.house, this.critters.selectionRing, this.doorRing);
 
     this.rigs = {
       yard: new CameraRig(framePoints('yard')),
@@ -136,11 +162,15 @@ export class World3D {
     return this.toPage({ ...worldToGround(p), y: height });
   }
 
-  /** Where an animal or visitor (its middle) is on the page, or null if hidden or off screen. */
+  /** Where something tappable (its middle) is on the page, or null if hidden or off screen. */
   projectObject(kind: PickKind, id: string): ScreenPoint | null {
-    const p = this.critters.get(kind, id);
-    if (!p || p.zone !== this.zone) return null;
-    return this.toPage(this.anchorOf(p, 0.5));
+    const p = this.live().get(pickKey(kind, id));
+    return p ? this.toPage(this.anchorOf(p, 0.5)) : null;
+  }
+
+  /** Particles alive right now (the original's cap applies). */
+  particles(): number {
+    return this.fx.particleCount;
   }
 
   /** The camera, for tests and the debug panel. */
@@ -165,6 +195,8 @@ export class World3D {
     this.offs.forEach((off) => off());
     this.gestures.cancel();
     this.critters.dispose();
+    this.care.dispose();
+    this.fx.dispose();
     this.scene.traverse((o) => {
       if (o instanceof Mesh) {
         o.geometry.dispose();
@@ -175,6 +207,7 @@ export class World3D {
     this.renderer.dispose();
     this.renderer.domElement.remove();
     this.labels.domElement.remove();
+    this.overlay.remove();
   }
 
   // ---- Setup -----------------------------------------------------------------------------------
@@ -269,10 +302,7 @@ export class World3D {
   private pick(p: { x: number; y: number }): Pickable | null {
     this.raycaster.setFromCamera(this.ndc(p), this.rig.camera);
     const hits = this.raycaster.intersectObject(this.zones[this.zone], true);
-    const live = new Map<string, Pickable>();
-    for (const pickable of this.critters.pickables()) {
-      if (pickable.zone === this.zone) live.set(`${pickable.kind}:${pickable.id}`, pickable);
-    }
+    const live = this.live();
     for (const hit of hits) {
       const key = hit.object.userData.pickKey as string | undefined;
       const pickable = key ? live.get(key) : undefined;
@@ -294,16 +324,26 @@ export class World3D {
     return best;
   }
 
+  /** Everything tappable in the zone on show, by pick key. */
+  private live(): Map<string, Pickable> {
+    const live = new Map<string, Pickable>();
+    for (const source of [this.critters.pickables(), this.care.pickables()]) {
+      for (const p of source) if (p.zone === this.zone) live.set(pickKey(p.kind, p.id), p);
+    }
+    return live;
+  }
+
   private pressAt(p: PointerSample): PressHandler | null {
     const target = this.pick(p);
     if (!target) return null;
+    if (target.kind === 'animal') return this.pressAnimal(target.id, p);
+    // Everything else acts on a tap (released without dragging off).
     const start = p;
     let moved = false;
     return {
       move: (q) => {
-        if (Math.hypot(q.x - start.x, q.y - start.y) > TAP_SLOP) moved = true;
+        if (Math.hypot(q.x - start.x, q.y - start.y) > TAP_SLOP * 2) moved = true;
       },
-      // Hold (pet) and drag (to the door) arrive in Phase 3D-3; for now a press is a tap.
       up: () => {
         if (!moved) this.tapObject(target);
       },
@@ -311,35 +351,71 @@ export class World3D {
     };
   }
 
+  /** Tap an animal for its card, hold to pet, drag to carry it to the door. */
+  private pressAnimal(id: string, start: PointerSample): PressHandler | null {
+    const zone = this.zone;
+    const { sim } = this.session;
+    const entry = () => this.critters.actor(id);
+    return animalPress(
+      {
+        zone,
+        animalId: id,
+        select: (animalId) => appBus.emit('selectAnimal', { id: animalId }),
+        pet: (animalId) => sim.pet(animalId),
+        moveToZone: (animalId, to) => sim.moveAnimalToZone(animalId, to),
+        groundAt: (q) => this.rig.groundAt(this.ndc(q)),
+        carry: {
+          start: () => entry()?.actor.startDrag(),
+          to: (g) => entry()?.actor.dragTo(g),
+          drop: (goHome) => entry()?.actor.endDrag(performance.now(), this.reducedMotion(), goHome),
+          top: () => entry()?.actor.top ?? { x: 0, y: 1, z: 0 },
+        },
+        doorHint: (state) => this.showDoor(zone, state),
+        say: (at, text, color) => this.fx.floatText(this.zones[zone], at, text, color, 22),
+        now: () => performance.now(),
+        setTimer: (fn, ms) => window.setTimeout(fn, ms),
+        clearTimer: (t) => window.clearTimeout(t as number),
+      },
+      start,
+    );
+  }
+
   private tapObject(target: Pickable): void {
-    if (target.kind === 'animal') {
-      appBus.emit('selectAnimal', { id: target.id });
+    if (target.kind === 'visitor') {
+      const visitor = this.session.sim.state.world.gateQueue.find((v) => v.id === target.id);
+      if (visitor && !visitor.revealed) this.session.sim.revealVisitor(visitor.id);
       return;
     }
-    const visitor = this.session.sim.state.world.gateQueue.find((v) => v.id === target.id);
-    if (visitor && !visitor.revealed) this.session.sim.revealVisitor(visitor.id);
+    if (target.kind !== 'animal') this.care.tap(target.kind, target.id);
   }
 
   private tapGround(p: PointerSample): void {
     const ground = this.rig.groundAt(this.ndc(p));
-    if (ground) this.ripple(ground.x, ground.z);
+    if (ground) this.fx.ripple(this.zones[this.zone], { x: ground.x, y: 0, z: ground.z });
     appBus.emit('selectAnimal', { id: null });
   }
 
-  private ripple(x: number, z: number): void {
-    const mesh = new Mesh(
-      this.rippleGeo,
-      new MeshBasicMaterial({
-        color: 0xffffff,
-        transparent: true,
-        opacity: 0.8,
-        depthWrite: false,
-      }),
-    );
-    mesh.rotation.x = -Math.PI / 2;
-    mesh.position.set(x, 0.03, z);
-    this.zones[this.zone].add(mesh);
-    this.ripples.push({ mesh, start: performance.now() });
+  /** The glowing ring at the door while an animal is carried: brighter when it's close. */
+  private showDoor(zone: ViewZone, state: 'off' | 'far' | 'near'): void {
+    this.doorState = state;
+    this.doorRing.visible = state !== 'off';
+    const door = worldToGround(doorOf(zone));
+    this.doorRing.position.set(door.x, 0.03, door.z);
+    const material = this.doorRing.material as MeshBasicMaterial;
+    material.color.set(state === 'near' ? 0x9ff0a8 : 0xffffff);
+  }
+
+  /** Coins flying from a spot in the world to the coin counter in the HUD. */
+  private coinsFrom(from: Point3, count: number): void {
+    const start = this.toCanvas(from);
+    if (!start) return;
+    const counter = document.querySelector('[data-testid="coins"]');
+    const hostRect = this.host.getBoundingClientRect();
+    const r = counter?.getBoundingClientRect();
+    const to = r
+      ? { x: r.left + r.width * 0.25 - hostRect.left, y: r.top + r.height / 2 - hostRect.top }
+      : { x: 150, y: 28 };
+    this.fx.coinShower(start, to, count);
   }
 
   // ---- Projection ------------------------------------------------------------------------------
@@ -376,11 +452,14 @@ export class World3D {
     const dt = Math.min(0.1, (now - this.lastFrame) / 1000);
     this.lastFrame = now;
     this.yard.sync(this.session.sim.state.world);
-    this.critters.update(
-      { now, dt, reducedMotion: this.reducedMotion(), cameraYaw: this.rig.view.azimuth },
-      this.zone,
-    );
-    this.updateRipples(now);
+    const ctx = { now, dt, reducedMotion: this.reducedMotion(), cameraYaw: this.rig.view.azimuth };
+    this.critters.update(ctx, this.zone);
+    this.care.update(ctx);
+    this.fx.update(now);
+    if (this.doorRing.visible) {
+      const pulse = ctx.reducedMotion ? 1 : 1 + 0.08 * Math.sin(now / 150);
+      this.doorRing.scale.setScalar(pulse * (this.doorState === 'near' ? 1.1 : 1));
+    }
     this.renderer.render(this.scene, this.rig.camera);
     this.labels.render(this.scene, this.rig.camera);
     this.notifyView();
@@ -395,21 +474,5 @@ export class World3D {
     if (atHome === this.atHome && !force) return;
     this.atHome = atHome;
     appBus.emit('viewChanged', { atHome });
-  }
-
-  private updateRipples(now: number): void {
-    const still = this.reducedMotion();
-    for (let i = this.ripples.length - 1; i >= 0; i--) {
-      const r = this.ripples[i]!;
-      const t = (now - r.start) / 500;
-      if (t >= 1) {
-        r.mesh.removeFromParent();
-        (r.mesh.material as MeshBasicMaterial).dispose();
-        this.ripples.splice(i, 1);
-        continue;
-      }
-      if (!still) r.mesh.scale.setScalar(1 + t * 2.5);
-      (r.mesh.material as MeshBasicMaterial).opacity = 0.8 * (1 - t);
-    }
   }
 }

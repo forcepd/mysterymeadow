@@ -1486,3 +1486,92 @@ The start is much busier, as intended. But because the yard fills to capacity ab
 - **Coming in 3D-3:** the effects (reveal star burst, hearts, confetti, "+45 🪙", coin shower), sickness looks (sneezes, limp, shiver), hold to pet, and drag to the door.
 - **Coming in 3D-5:** pet outfits.
 - **Two small looks to tune later:** the baby dragon's wings look a bit spiky up close, and the lamb's wool hides its tail.
+
+## Phase 3D-3: Care and effects (built 2026-09-30)
+
+### What was built
+
+**Care things (`src/world3d/care/`)**
+
+- **Food bowls** (DESIGN 8.2), in the yard and the house, on their tiles:
+  - A blue bowl turned on a lathe, with a food mound and kibble on top that shrink as servings are eaten. One cached mesh per fill level.
+  - A pulsing pink "!" when empty. It stays still with reduced motion.
+  - Tap to refill. Tapping a full bowl says "Full!".
+- **Poop** (DESIGN 8.3): a three-scoop swirl with a curl on top and two wavy stink lines. New ones plop in (ones already there when the game loads don't). Tap to clean: a sparkle, and it shrinks away.
+- **Finds** (the early-game coin, lucky clover and butterfly):
+  - They hover and bob. The coin spins, the clover turns, and the butterfly flaps its wings.
+  - Tap one for coins: "+3 🪙" floats up with a sparkle, and coins fly to the counter.
+  - One nobody taps floats away. Tap targets are the original's 88 px.
+- **Scoop Bot:** a little robot on wheels with a scoop, antenna and visor, parked by the fence left of the gate. It shows once bought. When it cleans a yard poop, it zips over, wiggles, sparkles, and drives back.
+- **House upgrade:** a star burst and hearts over the house.
+
+**Pet and carry (`animals/animalPress.ts`)**, like the original:
+
+- A quick tap (on release) opens the card.
+- **Holding 450 ms pets:** hearts, or "💕 Loved that!" if it was just petted.
+- **Dragging** (past 18 CSS px) picks the animal up. It's lifted and 10% bigger while it follows the finger, and a ring glows at the door, turning green when it's close enough to drop.
+- **Drop within the original's door radius:** it goes through (walks out and shrinks through the door). If there's no room, it says why ("…bed…") and walks home.
+- **Anywhere else:** it walks home.
+- **Cancel** (a second finger, or the browser taking the touch) puts it back down.
+
+**Sickness looks (`animals/symptoms.ts`)**: all 6 of the original's symptoms. The models now report where their eyes, nose, cheeks and paws are (`AnimalModel.anchors`), so each look sits on that species' own face and body.
+
+| Illness look | Drawing                            | Motion               | Words        |
+| ------------ | ---------------------------------- | -------------------- | ------------ |
+| sneeze       | a drippy blue nose                 | a squash every 2.6 s | "achoo!"     |
+| wobble       | green cheeks                       | a rumbly tilt        | "~"          |
+| dots         | 6 bouncing flea dots               | a scratch-shake      |              |
+| limp         | a puffy pink paw                   | a limp               |              |
+| spots        | red spots and a warm, pulsing glow |                      |              |
+| zzz          | heavy eyelids                      | slow breathing       | drifting "z" |
+
+With reduced motion, everything stays still and "achoo!" and "z z" stay put.
+
+**Effects (`fx/Effects3D.ts`)**: the original's effects, in 3D.
+
+- **Particles** are billboard sprites (stars, puffs, hearts) and tumbling paper confetti. They share the original's cap (`MAX_PARTICLES` = 90, the same `ParticleBudget`); extras are trimmed, never queued.
+- **Floating text** ("+45 🪙", "nom!", "🍼🍼", trick icons, "📦 Resting") and **banners** ("✦ Sparkle! ✦", "Epic!", "Legendary!") are HTML labels with a white outline.
+- **Coin showers** are DOM coins that hop up from the spot and fly to wherever the HUD's coin counter really is.
+- **The tap ripple** is here now too.
+- **Reduced motion:** everything fades in place.
+- **Hooked to the same events as the original:**
+  - reveal (a puff and burst, confetti for Rare and up, and a banner for Sparkle, Epic and Legendary)
+  - birth, sale, storage
+  - trick performed and learned
+  - pet, treat, eat, refill, clean, find
+  - Scoop Bot, house upgrade
+
+**Test hooks:** `window.meadow3d.projectObject` now takes bowls, poops and finds, and `particles()` counts live particles. `tests/e2e/helpers3d.ts` holds the shared 3D e2e helpers.
+
+### Tests
+
+- **Unit:** 594 in total (11 new). They cover every rule of the animal press:
+  - tap vs hold, a single pet, "Loved that!", and a late timer still petting
+  - the drag slop, and carrying cancelling the hold
+  - dropping at the yard and house doors (with the door glow states)
+  - dropping away from the door, and a refused move with its reason
+  - the slow press-then-drag, and cancel
+- **E2E:** a new `world3d-care.spec.ts`, 8 tests × 3 browser setups:
+  - An empty bowl's "!", refilling it, and "Full!".
+  - Cleaning poop.
+  - A coin find (+3 coins, with coins flying).
+  - Pet hearts and "Loved that!".
+  - Carrying an animal in with a bed and back out from the doormat.
+  - No bed: it stays out and walks home, and a drag isn't a tap.
+  - The sneeze and sleepy symptoms.
+  - The Sparkle reveal banner.
+  - It passed 32 of 32 when repeated under load on desktop Chromium, and 72 of 72 repeated 3× across all three browser setups.
+- **Full e2e run:** 325 passed and 7 skipped. One 3D test failed only because it read an animal's screen position a frame too early under load, so it now waits for it.
+
+### Defaults chosen (please confirm or change)
+
+1. **A slow press-then-drag still picks the animal up,** even after the hold has petted it. The original ignored movement after a pet. The e2e tests showed a slow "press, pause, drag" otherwise does nothing, which would confuse a kid.
+2. **A glowing ring at the door while carrying an animal** (it turns green in range). This is new, to show kids where to drop.
+3. **Bowls, poop and finds use real 3D models with outlines** and never fade near the camera.
+4. **Butterflies are drawn 1.7× bigger than the other finds,** so they're easy to spot in 3D.
+
+### Known issues
+
+- The room is still the 3D-0 placeholder. Its doormat is brown with no "🌳 Outside" label yet (3D-4).
+- Decorate mode (moving bowls and other items, hiding finds while decorating) comes in 3D-4.
+- Headless Chrome draws the 🪙 emoji gray (fine on devices).

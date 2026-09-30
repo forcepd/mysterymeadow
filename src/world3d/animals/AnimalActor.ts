@@ -9,6 +9,7 @@ import type { GroundPoint } from '../coords';
 import { labelStyles, setText, worldLabel } from './labels';
 import { animalMaterials, starTexture } from './materials';
 import { animalModel, type AnimalModel } from './model';
+import { symptomView, type SymptomView } from './symptoms';
 import {
   ambleSpot,
   breath,
@@ -80,6 +81,9 @@ export class AnimalActor {
   private trick: { move: TrickMove; start: number } | null = null;
   private pop: { start: number } | null = null;
   private leaving: Leaving | null = null;
+  private symptom: SymptomView | null = null;
+  /** Picked up by the player's finger (drag to the door). */
+  private dragging = false;
   private lastNow = 0;
 
   constructor(
@@ -131,6 +135,16 @@ export class AnimalActor {
     return this.leaving !== null;
   }
 
+  get isDragging(): boolean {
+    return this.dragging;
+  }
+
+  /** The top of its head, in world units (for effects over it). */
+  get top(): { x: number; y: number; z: number } {
+    const p = this.walker.pos;
+    return { x: p.x, y: this.height, z: p.z };
+  }
+
   /** Updates looks and home from sim state. Cheap to call every frame. */
   sync(
     animal: Animal,
@@ -147,6 +161,9 @@ export class AnimalActor {
       this.body.geometry = this.model.geometry;
       this.outline.geometry = this.model.outline;
       this.setSparkle(animal.isSparkle);
+      // Rebuild any symptom look for the new body.
+      this.symptom?.dispose();
+      this.symptom = null;
     }
 
     const baby = badges.includes('baby');
@@ -155,6 +172,13 @@ export class AnimalActor {
     if (animal.needs.happiness < LOW_NEED) active.add('sad');
     const illness = animal.sickness && getIllness(animal.sickness.illnessId);
     const sickIcon = animal.sickness?.atClinicUntil !== undefined ? '🏥' : illness?.symptomIcon;
+    const symptom = illness?.symptomFx;
+    if (symptom !== this.symptom?.kind) {
+      this.symptom?.dispose();
+      this.symptom = symptom
+        ? symptomView(symptom, this.model.anchors, this.figure, this.root)
+        : null;
+    }
     const icons = ICON_ORDER.filter((i) => active.has(i))
       .slice(0, 2)
       .map((i) => (i === 'sick' && sickIcon) || ICONS[i])
@@ -170,8 +194,25 @@ export class AnimalActor {
 
     if (home.x !== this.home.x || home.z !== this.home.z) {
       this.home = { ...home };
-      this.walker.walkTo(home, now, instant);
+      if (!this.dragging) this.walker.walkTo(home, now, instant);
     }
+  }
+
+  /** Picked up: lifted a little, and it stops wandering. */
+  startDrag(): void {
+    this.dragging = true;
+    this.walker.stop();
+    this.trick = null;
+  }
+
+  dragTo(p: GroundPoint): void {
+    this.walker.pos = { ...p };
+  }
+
+  /** Put down: walks back home unless it's leaving through a door. */
+  endDrag(now: number, instant: boolean, goHome = true): void {
+    this.dragging = false;
+    if (goHome) this.walker.walkTo(this.home, now, instant);
   }
 
   /** Walks to a spot (e.g. home from the gate, or through a door). */
@@ -212,7 +253,13 @@ export class AnimalActor {
     const { now, reducedMotion } = ctx;
     this.lastNow = now;
     // Amble around home now and then (never while leaving or with reduced motion).
-    if (!this.leaving && !this.walker.walking && !reducedMotion && now >= this.nextAmbleAt) {
+    if (
+      !this.leaving &&
+      !this.dragging &&
+      !this.walker.walking &&
+      !reducedMotion &&
+      now >= this.nextAmbleAt
+    ) {
       this.nextAmbleAt = nextAmble(now, this.random);
       this.walker.walkTo(ambleSpot(this.home, this.random), now);
       this.idleYaw = (this.random() - 0.5) * 1.1;
@@ -250,19 +297,32 @@ export class AnimalActor {
       }
     }
 
+    const sick = this.symptom?.update(now, reducedMotion);
+    // Held up by the finger: lifted and a little bigger, like the original.
+    const held = this.dragging ? 0.3 : 0;
+    if (this.dragging) scale *= 1.1;
     const breathe = reducedMotion ? 1 : breath(now, this.breathMs);
-    this.figure.scale.set(pose.sx * (hop > 0 ? 0.95 : 1), pose.sy * breathe, pose.sx);
-    this.pose.position.set(pose.x, pose.y + hop + lift, pose.z);
-    this.pose.rotation.set(pose.rx, pose.ry, pose.rz);
+    this.figure.scale.set(
+      pose.sx * (hop > 0 ? 0.95 : 1) * (sick?.sx ?? 1),
+      pose.sy * breathe * (sick?.sy ?? 1),
+      pose.sx,
+    );
+    this.pose.position.set(
+      pose.x + (sick?.x ?? 0),
+      pose.y + hop + lift + held + (sick?.y ?? 0),
+      pose.z,
+    );
+    this.pose.rotation.set(pose.rx, pose.ry, pose.rz + (sick?.rz ?? 0));
     this.pose.scale.setScalar(scale);
     // The shadow stays on the ground, smaller while the animal is up in the air.
-    const air = pose.y + hop + lift;
+    const air = pose.y + hop + lift + held;
     this.shadow.scale.setScalar(this.model.radius * 0.8 * scale * Math.max(0.5, 1 - air * 1.2));
     this.twinkle(now, reducedMotion);
     this.placeRoot(this.yaw);
   }
 
   dispose(): void {
+    this.symptom?.dispose();
     this.root.removeFromParent();
     for (const s of this.sparkles) s.material.dispose();
     this.name.element.remove();

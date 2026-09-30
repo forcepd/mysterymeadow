@@ -50,6 +50,22 @@ export interface AnimalModel {
   height: number;
   /** Roughly how far it reaches from its center on the ground (for tap volumes and shadows). */
   radius: number;
+  /** Where things are on this animal (symptoms, and outfits later), in model space. */
+  anchors: AnimalAnchors;
+}
+
+export interface AnimalAnchors {
+  head: { center: V3; radius: number };
+  body: { center: V3; radii: V3 };
+  /** Left and right eye, on the face surface. */
+  eyes: [V3, V3];
+  nose: V3;
+  /** Left and right cheek. */
+  cheeks: [V3, V3];
+  /** The front-right paw, on the ground. */
+  paw: V3;
+  /** Which way the face looks (unit vector). */
+  facing: V3;
 }
 
 // ---- Placing parts ------------------------------------------------------------------------------
@@ -855,7 +871,22 @@ function hashSeed(text: string): number {
   return h >>> 0;
 }
 
-function finish(P: Parts): AnimalModel {
+function anchorsFor(f: Frame): AnimalAnchors {
+  const { c, r } = f.body;
+  const front = f.art.body.shape === 'long' ? 0.72 : 0.62;
+  const middle = face(f, 0, 0);
+  return {
+    head: { center: f.head.c, radius: f.hr },
+    body: { center: c, radii: r },
+    eyes: [face(f, -0.36, 0.1, 0.01).at, face(f, 0.36, 0.1, 0.01).at],
+    nose: face(f, 0, -0.16, 0.02).at,
+    cheeks: [face(f, -0.6, -0.22).at, face(f, 0.6, -0.22).at],
+    paw: [r[0] * 0.48, 0.05, c[2] + r[2] * front],
+    facing: middle.n,
+  };
+}
+
+function finish(P: Parts, f: Frame): AnimalModel {
   const geometry = merge(P.list);
   const box = geometry.boundingBox!;
   return {
@@ -863,6 +894,7 @@ function finish(P: Parts): AnimalModel {
     outline: outlineGeometry(geometry),
     height: box.max.y,
     radius: Math.max(box.max.x, -box.min.x, box.max.z, -box.min.z),
+    anchors: anchorsFor(f),
   };
 }
 
@@ -884,7 +916,7 @@ export function animalModel(speciesId: string, variantId: string, sparkle = fals
   nose(P, f, p);
   eyes(P, f);
   extras(P, f, p);
-  const model = finish(P);
+  const model = finish(P, f);
   cache.set(key, model);
   return model;
 }
@@ -911,6 +943,6 @@ export function mysteryModel(): AnimalModel {
   head(P, f, p);
   tail(P, f, p);
   ears(P, f, p);
-  mystery = finish(P);
+  mystery = finish(P, f);
   return mystery;
 }

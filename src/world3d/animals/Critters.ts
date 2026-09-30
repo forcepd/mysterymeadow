@@ -1,4 +1,4 @@
-import { Mesh, MeshBasicMaterial, RingGeometry, type Group, type Object3D } from 'three';
+import { Mesh, MeshBasicMaterial, RingGeometry, type Group } from 'three';
 import { appBus } from '../../bridge/appBus';
 import type { GameSession } from '../../bridge/gameSession';
 import { getTrick } from '../../config/tricks';
@@ -7,19 +7,9 @@ import { COLORS } from '../../game/constants';
 import { worldToGround, type GroundPoint, type ViewZone } from '../coords';
 import { AnimalActor, type FrameContext } from './AnimalActor';
 import { VisitorActor } from './VisitorActor';
-
-export type PickKind = 'animal' | 'visitor';
-
-/** Something in the world that can be tapped. */
-export interface Pickable {
-  kind: PickKind;
-  id: string;
-  zone: ViewZone;
-  /** Its root in the scene (its position is on the ground). */
-  object: Object3D;
-  /** Its current height (units), for projecting its middle. */
-  height: number;
-}
+import type { Pickable } from '../pick';
+import type { FxHost } from '../care/Care';
+import { RARITY_STYLE } from '../../art/palette';
 
 type Spawn = { at: GroundPoint; kind: 'walk' | 'pop' };
 
@@ -49,6 +39,7 @@ export class Critters {
   constructor(
     private readonly session: GameSession,
     private readonly zones: Record<ViewZone, Group>,
+    private readonly host: FxHost,
     private readonly random: () => number = Math.random,
   ) {
     this.ring = new Mesh(
@@ -75,13 +66,71 @@ export class Critters {
         });
       }),
       events.on('visitorLeft', ({ visitor }) => this.leftGate.add(visitor.id)),
+      events.on('visitorRevealed', ({ visitor }) => {
+        const v = this.visitors.get(visitor.id);
+        if (!v) return;
+        const { rarity, isSparkle } = visitor.roll;
+        const style = RARITY_STYLE[rarity];
+        const at = { ...this.ground(v.position), y: 0.45 };
+        const { fx } = this.host;
+        fx.puff(this.zones.yard, at);
+        fx.burst(this.zones.yard, at, [style.hex, 0xffd84d, 0xffffff], 12);
+        // Rarer finds get a bigger party.
+        const big = isSparkle || rarity === 'rare' || rarity === 'epic' || rarity === 'legendary';
+        if (big) fx.confetti(this.zones.yard, at, isSparkle || rarity === 'legendary' ? 24 : 14);
+        const high = { ...at, y: 1.5 };
+        if (isSparkle) fx.banner(this.zones.yard, high, '✦ Sparkle! ✦', '#c2489a');
+        else if (rarity === 'epic' || rarity === 'legendary')
+          fx.banner(this.zones.yard, high, `${style.label}!`, style.color);
+      }),
       events.on('animalBorn', ({ mother, babies }) => {
         const mom = this.animals.get(mother.id);
         const at = mom ? { ...mom.actor.position } : this.home(mother.zone, mother.position);
         for (const baby of babies) this.spawnFrom.set(baby.id, { at, kind: 'pop' });
+        const zone = this.zones[mother.zone];
+        const { fx } = this.host;
+        fx.hearts(zone, { ...this.ground(at), y: 0.9 }, 5);
+        fx.burst(zone, { ...this.ground(at), y: 0.3 }, [0xffd84d, 0xff9fc4, 0xffffff]);
+        fx.confetti(zone, { ...this.ground(at), y: 0.5 }, 12);
+        fx.floatText(
+          zone,
+          { ...this.ground(at), y: 1.3 },
+          '🍼'.repeat(Math.min(babies.length, 4)),
+          '#e0628b',
+          34,
+          250,
+        );
       }),
-      events.on('animalSold', ({ animal }) => this.sold.add(animal.id)),
-      events.on('petStored', ({ animal }) => this.stored.add(animal.id)),
+      events.on('animalSold', ({ animal, price }) => {
+        this.sold.add(animal.id);
+        this.over(animal.id, (zone, top) => {
+          this.host.fx.floatText(zone, { ...top, y: top.y + 0.3 }, `+${price} 🪙`, '#c98a00', 34);
+          this.host.fx.hearts(zone, top, 3);
+          this.host.coins({ ...top, y: top.y * 0.5 }, Math.min(10, 3 + Math.floor(price / 40)));
+        });
+      }),
+      events.on('petStored', ({ animal }) => {
+        this.stored.add(animal.id);
+        this.over(animal.id, (zone, top) =>
+          this.host.fx.floatText(zone, { ...top, y: top.y + 0.2 }, '📦 Resting', '#8b5a33', 26),
+        );
+      }),
+      events.on('trickLearned', ({ animal }) =>
+        this.over(animal.id, (zone, top) =>
+          this.host.fx.burst(zone, { ...top, y: top.y * 0.6 }, [0xffd84d, 0xff9fc4, 0xffffff], 12),
+        ),
+      ),
+      events.on('animalPetted', ({ animal }) =>
+        this.over(animal.id, (zone, top) =>
+          this.host.fx.hearts(zone, { ...top, y: top.y + 0.05 }, 4),
+        ),
+      ),
+      events.on('treatGiven', ({ animal }) =>
+        this.over(animal.id, (zone, top) => {
+          this.host.fx.floatText(zone, { ...top, y: top.y + 0.2 }, '🍪', '#c98a00', 36);
+          this.host.fx.hearts(zone, top, 3);
+        }),
+      ),
       events.on('animalMovedZone', ({ animal, from, to }) => {
         if (from !== to) this.exiting.add(animal.id);
         this.spawnFrom.set(animal.id, { at: door(to), kind: 'walk' });
@@ -91,8 +140,20 @@ export class Critters {
         this.spawnFrom.set(animal.id, { at: door(animal.zone), kind: 'pop' }),
       ),
       events.on('trickPerformed', ({ animal, trickId }) => {
-        const move = getTrick(trickId)?.move ?? 'jump';
-        this.animals.get(animal.id)?.actor.perform(move, this.now, this.reducedMotion);
+        const trick = getTrick(trickId);
+        this.animals
+          .get(animal.id)
+          ?.actor.perform(trick?.move ?? 'jump', this.now, this.reducedMotion);
+        this.over(animal.id, (zone, top) => {
+          this.host.fx.floatText(
+            zone,
+            { ...top, y: top.y + 0.2 },
+            trick?.icon ?? '⭐',
+            '#e0628b',
+            36,
+          );
+          this.host.fx.hearts(zone, top, 2);
+        });
       }),
       appBus.on('selectAnimal', ({ id }) => {
         this.selectedId = id;
@@ -117,7 +178,7 @@ export class Critters {
     }
   }
 
-  get(kind: PickKind, id: string): Pickable | undefined {
+  get(kind: Pickable['kind'], id: string): Pickable | undefined {
     for (const p of this.pickables()) if (p.kind === kind && p.id === id) return p;
     return undefined;
   }
@@ -148,6 +209,25 @@ export class Critters {
     for (const actor of this.departing) actor.dispose();
     this.ring.geometry.dispose();
     (this.ring.material as MeshBasicMaterial).dispose();
+  }
+
+  /** The animal actor (for dragging), if it's in the world and not leaving. */
+  actor(id: string): { actor: AnimalActor; zone: ViewZone } | undefined {
+    const entry = this.animals.get(id);
+    return entry && !entry.actor.isLeaving ? entry : undefined;
+  }
+
+  /** Runs an effect over an animal: its zone's group and the top of its head. */
+  private over(
+    id: string,
+    fn: (zone: Group, top: { x: number; y: number; z: number }) => void,
+  ): void {
+    const entry = this.animals.get(id);
+    if (entry) fn(this.zones[entry.zone], entry.actor.top);
+  }
+
+  private ground(p: GroundPoint): { x: number; y: number; z: number } {
+    return { x: p.x, y: 0, z: p.z };
   }
 
   private home(zone: ViewZone, position: { x: number; y: number }): GroundPoint {
