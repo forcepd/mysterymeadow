@@ -7,8 +7,8 @@ const deg = MathUtils.degToRad;
 export const CAMERA_LIMITS = {
   /** Polar angle from straight down: never quite overhead... */
   minPolar: deg(4),
-  /** ...and never lower than 20 degrees above the ground. */
-  maxPolar: deg(70),
+  /** ...and never lower than 12 degrees above the ground (a sliver of sky over the hills). */
+  maxPolar: deg(78),
   /** Zoom is the camera distance as a fraction of the default (fitted) distance. */
   minZoom: 0.3,
   maxZoom: 1.3,

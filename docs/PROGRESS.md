@@ -1335,3 +1335,71 @@ The start is much busier, as intended. But because the yard fills to capacity ab
   - Decorate mode doesn't work in 3D (3D-4).
 - **The Vet Clinic's patient scene isn't built** (3D-5). The panel opens, but there's no patient to examine.
 - **Animals don't move in 3D yet.** The sim's wander spots and the render-only ambling come with 3D-2.
+
+## Phase 3D-1: The yard (built 2026-09-30)
+
+### What was built
+
+**Look (`src/world3d/art/toon.ts`)**: the shared 3D style.
+
+- Toon shading in three soft tones.
+- A soft dark-brown outline on everything, like the original's thick outlines. It's drawn as an "inverted hull" with welded, smoothed normals, so box corners don't crack.
+- Static scenery is built from colored parts merged into one mesh, using vertex colors.
+
+**The yard (`src/world3d/yard/`)**
+
+- **Ground:** rolling grass with soft light and dark patches (`terrain.ts`). It's perfectly flat over the yard, the house, the gate queue and a margin around them, then rises into gentle hills.
+- **Path:** the sandy path runs from the gate up past the queue, then winds over the hills into the distance.
+- **Fence:** a picket fence with pointed pickets now goes all the way around the yard. The house's front wall takes the place of the fence, so the door opens onto the yard. The gate has tall posts with red caps, and its panel is swung open outward.
+- **Around the yard:**
+  - Round-canopy and pine trees along the back, sides and front, plus a looser ring on the hills.
+  - Bushes behind the fence.
+  - Flowers where the original drew them, plus more along the fence and below the yard.
+  - 900 grass tufts, drawn as one instanced mesh.
+- **Sky:** a sky gradient, puffy clouds, and fog that fades the hills into the horizon.
+- **The house** (`house.ts`), rebuilt when its color or tier changes:
+  - **Every tier:** walls in the saved exterior color, a gable roof with overhang and chimney, and an arched door with a gold knob and stone step at `HOUSE_DOOR`. It has windows on all four sides, so it looks right from any angle.
+  - **Bungalow:** a porch roof and flower boxes.
+  - **Farmhouse:** a round attic window.
+  - **Manor:** two towers with purple roofs, and a pink flag.
+- **Lighting:** a sky/grass hemisphere fill and a warm sun from the upper left, with a 2048 px soft shadow map covering the whole yard.
+- **Near-camera fade:** trees, fences and the house dissolve (a 4×4 dither, no transparency sorting) when they're closer to the camera than 60% of the distance to what it's looking at. Low angles and zoomed-in views never have a tree in the way. Animals never fade.
+
+**Camera**: the lowest angle is now 12° above the ground (was 20°), so a sliver of sky and the hills show when you look across the yard.
+
+**Performance**: a full Manor yard with 16 animals draws about 90 draw calls and 210k triangles, including the shadow pass. An e2e test holds it under 150 calls and 300k triangles. To get there:
+
+- Near trees get round canopies; far trees are simpler and cast no shadows.
+- Fence posts have fewer rounding segments.
+- Tufts have no bases, and the flowers are low-poly with a thinner outline.
+
+`window.meadow3d.stats()` reports the last frame's draw calls and triangles.
+
+### Tests
+
+- **Unit:** 567 in total (12 new).
+  - **Terrain:** flat everywhere the game puts things (the yard corners, the door, the tiles, 8 gate slots), with no cliffs in the hills.
+  - **Play area kept clear:**
+    - Nothing taller than a flower stands in the yard.
+    - Gate slots 0–5, the gate gap, and the door spot are free of tall scenery.
+    - The fence is present along the top of the yard.
+  - **Flowers** are short everywhere.
+  - **Merged meshes:** the scenery is at most 11 meshes.
+  - **House, every tier × all 8 colors:** centered on the door, just behind the door spot, grander by tier, within its patch, painted the chosen color, and its outline never takes taps or casts shadows.
+  - **The near fade** is only on scenery materials.
+- **E2E:** 2 new tests × 3 browser setups (28 passed, 2 skipped).
+  - An animal right below the house and fence can be tapped, and so can one seen from the lowest angle, past the faded trees.
+  - The drawing budget above.
+
+### Defaults chosen (please confirm or change)
+
+1. **A fence all the way around the yard.** The original only drew one along the top, because its sides were the screen edges. The front and side fences sit outside the default view.
+2. **The house sits just behind the fence line,** and its front wall takes the fence's place. In the original, the fence was drawn across the bottom of the house.
+3. **The lowest camera angle is 12°,** down from 20°, so the sky and hills show.
+4. **Scenery fades at 60%** of the camera's distance.
+
+### Known issues
+
+- Headless desktop Chromium in the e2e tests draws the yard on the CPU, so each 3D test there takes 8–16 s (iPad WebKit: about 1–2 s). This is well within the timeouts, and it doesn't affect real devices.
+- The house zone's room is still the 3D-0 placeholder (3D-4).
+- Scoop Bot, finds, bowls and the house-upgrade sparkle don't show in 3D yet (3D-3).

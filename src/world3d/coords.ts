@@ -29,8 +29,15 @@ export type ViewZone = 'yard' | 'house';
 
 /** Height of the house's back wall inside (the 2D wall strip stands up in 3D). */
 export const WALL_HEIGHT = 2.4;
-/** Height of the house in the yard, roof peak included. */
-export const HOUSE_HEIGHT = 3;
+/**
+ * The house in the yard: its walls' footprint (world px) and heights (units). Centered on the
+ * door spot (HOUSE_DOOR.x), with the front wall just behind the fence line, so the door opens
+ * onto the yard like in the original.
+ */
+export const HOUSE_BOX = { x: 90, y: 160, w: 290, h: 170 } as const;
+export const HOUSE_WALL_HEIGHT = 1.45;
+/** Roof peak (towers and the flag of the Manor go a little higher). */
+export const HOUSE_HEIGHT = 2.65;
 
 export interface Point3 {
   x: number;
@@ -68,6 +75,5 @@ export function framePoints(zone: ViewZone): Point3[] {
     const wall = { ...FRAME.house, h: 0 };
     return [...ground, ...rectCorners(wall, WALL_HEIGHT)];
   }
-  const { x, y, width, height } = LAYOUT.house;
-  return [...ground, ...rectCorners({ x, y, w: width, h: height }, HOUSE_HEIGHT)];
+  return [...ground, ...rectCorners(HOUSE_BOX, HOUSE_HEIGHT)];
 }

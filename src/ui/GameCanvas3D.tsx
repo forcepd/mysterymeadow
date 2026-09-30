@@ -21,6 +21,7 @@ export default function GameCanvas3D() {
       projectObject: (kind, id) => world.projectObject(kind, id),
       projectWorld: (p, height) => world.projectWorld(p, height),
       view: () => world.view(),
+      stats: () => world.stats(),
     };
     let taps = 0;
     const offs = [

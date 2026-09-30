@@ -21,6 +21,8 @@ export interface Meadow3DHooks {
   projectObject(kind: 'animal' | 'visitor', id: string): ScreenPoint | null;
   projectWorld(p: Vec2, height?: number): ScreenPoint | null;
   view(): ViewInfo;
+  /** What the last frame drew (draw calls and triangles), for the performance budget. */
+  stats(): { calls: number; triangles: number };
 }
 
 declare global {

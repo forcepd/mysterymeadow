@@ -20,7 +20,7 @@ addendum overrides only the parts of DESIGN.md that talk about 2D rendering (Sec
 
 - One-finger drag (or mouse drag) on **empty ground** orbits the camera around the zone's center.
   Pinch / scroll wheel zooms. A "reset view" button returns to the default 3/4 angle.
-- Limits: the camera can't go below ~20° above the ground or past straight down, and zoom is
+- Limits: the camera can't go below 12° above the ground (a sliver of sky over the hills) or past straight down, and zoom is
   clamped so the whole zone and at least one animal always fit.
 - A tap (little movement, short press) behaves exactly like the original: open card, reveal
   visitor, clean poop, refill bowl, collect find, close card on empty ground.
@@ -30,6 +30,9 @@ addendum overrides only the parts of DESIGN.md that talk about 2D rendering (Sec
   least as big as the original's (48 CSS px minimum, animals larger).
 - Name labels, badges and "?" bubbles are billboards (always face the camera).
 - Reduced motion: no idle animation, no camera easing; rotating is still allowed.
+
+- Scenery (trees, fences, the house) closer to the camera than 60% of the way to what it looks
+  at dissolves away (a dither), so it never blocks the yard at low angles. Animals never fade.
 
 ## Positions
 

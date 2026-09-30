@@ -158,4 +158,48 @@ test.describe('3D world (?3d)', () => {
     await press(page, page.getByRole('button', { name: /Dex/ }));
     await expect(host).toHaveAttribute('data-canvas-taps', '1');
   });
+
+  test('scenery never takes taps: an animal by the house and fence, and from a low angle', async ({
+    page,
+  }) => {
+    await seedSave(
+      page,
+      buildSave((s, now) => {
+        s.world.house.tierId = 'manor';
+        // Top-left corner of the yard: right below the house and the fence.
+        s.world.animals.push(testAnimal(now, { id: 'a1', position: { x: 0.08, y: 0 } }));
+      }),
+    );
+    await page.goto('./?3d');
+    await canvasReady(page);
+    const card = page.getByRole('complementary', { name: /bunny card/i });
+    await tapAt(page, await whereIs(page, 'animal', 'a1'));
+    await expect(card).toBeVisible();
+    await press(page, card.getByRole('button', { name: 'Close' }));
+
+    // Swing around to the lowest angle, looking past trees and fence at the yard.
+    await drag(page, await emptyGround(page), { x: 150, y: -400 });
+    expect((await view(page)).polar).toBeGreaterThan(1.3);
+    await tapAt(page, await whereIs(page, 'animal', 'a1'));
+    await expect(card).toBeVisible();
+  });
+
+  test('a full yard stays within the iPad drawing budget', async ({ page }) => {
+    await seedSave(
+      page,
+      buildSave((s, now) => {
+        s.world.house.tierId = 'manor';
+        for (let i = 0; i < 16; i++) {
+          s.world.animals.push(
+            testAnimal(now, { id: `a${i}`, position: { x: (i % 4) / 4 + 0.1, y: (i >> 2) / 4 } }),
+          );
+        }
+      }),
+    );
+    await page.goto('./?3d');
+    await canvasReady(page);
+    const stats = await page.evaluate(() => window.meadow3d!.stats());
+    expect(stats.calls).toBeLessThan(150);
+    expect(stats.triangles).toBeLessThan(300_000);
+  });
 });

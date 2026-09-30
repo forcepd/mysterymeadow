@@ -1,20 +1,17 @@
 import {
   BoxGeometry,
-  ConeGeometry,
   Group,
   Mesh,
   MeshLambertMaterial,
   PlaneGeometry,
   type ColorRepresentation,
 } from 'three';
-import { COLORS } from '../game/constants';
-import { HOUSE_DOOR, INSIDE_DOOR, LAYOUT, ROOM } from '../game/layout';
-import { HOUSE_HEIGHT, toUnits, WALL_HEIGHT, worldToGround } from './coords';
+import { INSIDE_DOOR, ROOM } from '../game/layout';
+import { toUnits, WALL_HEIGHT, worldToGround } from './coords';
 
 /**
- * Phase 3D-0 placeholder scenery: plain blocks where the original draws the fence, gate, path,
- * house and room, so the layout mapping and camera can be checked. Phase 3D-1 replaces the yard
- * and 3D-4 the room.
+ * Placeholder room (from Phase 3D-0): plain blocks where the original draws the floor, back wall
+ * and doormat, so the layout mapping and camera can be checked. Phase 3D-4 replaces it.
  */
 
 const mat = (color: ColorRepresentation) => new MeshLambertMaterial({ color });
@@ -51,69 +48,6 @@ function block(
   mesh.castShadow = true;
   mesh.receiveShadow = true;
   return mesh;
-}
-
-export interface YardPlaceholder {
-  group: Group;
-  setHouseColor(color: string): void;
-}
-
-export function buildYardPlaceholder(): YardPlaceholder {
-  const group = new Group();
-  group.name = 'yard';
-  // Grass well past the frame, so orbiting never shows an edge (fog hides the far side).
-  group.add(groundRect(-4000, -4000, 9280, 8800, COLORS.grass));
-
-  // The path from the gate up past the queue.
-  const { gate, fenceY } = LAYOUT;
-  group.add(groundRect(gate.x + 10, -400, gate.width - 20, fenceY + 440, COLORS.path, 0.005));
-
-  // Fence along the top of the yard, with the gate gap.
-  const postW = 16;
-  for (let x = 20; x < 1280; x += 64) {
-    if (x > gate.x - postW && x < gate.x + gate.width) continue;
-    group.add(block(x - postW / 2, fenceY - postW / 2, postW, postW, 0.7, COLORS.fence));
-  }
-  for (const [from, to] of [
-    [0, gate.x],
-    [gate.x + gate.width, 1280],
-  ] as const) {
-    for (const railY of [0.3, 0.55]) {
-      const rail = block(from, fenceY - 4, to - from, 8, 0.08, COLORS.fence);
-      rail.position.y = railY;
-      group.add(rail);
-    }
-  }
-  // Gate posts.
-  for (const x of [gate.x, gate.x + gate.width]) {
-    group.add(block(x - 12, fenceY - 12, 24, 24, 1, COLORS.fenceEdge));
-  }
-
-  // The house: body, roof and door. The door faces the yard where HOUSE_DOOR is.
-  const h = LAYOUT.house;
-  const depth = 170;
-  const top = h.y + h.height - depth;
-  const wallHeight = HOUSE_HEIGHT * 0.6;
-  const houseMat = mat(COLORS.fence);
-  const body = block(h.x, top, h.width, depth, wallHeight, COLORS.fence);
-  body.material = houseMat;
-  group.add(body);
-  const roof = new Mesh(new ConeGeometry(1, HOUSE_HEIGHT - wallHeight, 4, 1), mat(COLORS.roof));
-  roof.rotation.y = Math.PI / 4;
-  roof.scale.set(toUnits(h.width) * 0.78, 1, toUnits(depth) * 0.78);
-  const center = worldToGround({ x: h.x + h.width / 2, y: top + depth / 2 });
-  roof.position.set(center.x, wallHeight + (HOUSE_HEIGHT - wallHeight) / 2, center.z);
-  roof.castShadow = true;
-  group.add(roof);
-  const doorAt = worldToGround({ x: HOUSE_DOOR.x, y: h.y + h.height });
-  const door = new Mesh(new BoxGeometry(0.5, 0.9, 0.06), mat(COLORS.door));
-  door.position.set(doorAt.x, 0.45, doorAt.z);
-  group.add(door);
-
-  return {
-    group,
-    setHouseColor: (color) => houseMat.color.set(color),
-  };
 }
 
 export function buildHousePlaceholder(): Group {

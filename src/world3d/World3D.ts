@@ -17,14 +17,16 @@ import {
 } from 'three';
 import { appBus } from '../bridge/appBus';
 import type { GameSession } from '../bridge/gameSession';
-import { HOUSE_COLORS } from '../config/houseColors';
 import { gateSlot, zoneToWorld } from '../game/layout';
 import type { Vec2 } from '../sim/types';
 import { CameraRig } from './CameraRig';
 import { framePoints, groundToWorld, worldToGround, type Point3, type ViewZone } from './coords';
 import { GestureRecognizer, TAP_SLOP, type PointerSample, type PressHandler } from './gestures';
 import type { ScreenPoint, ViewInfo } from './testHooks';
-import { buildHousePlaceholder, buildYardPlaceholder, type YardPlaceholder } from './placeholders';
+import { buildHousePlaceholder } from './placeholders';
+import { sceneryFade } from './art/toon';
+import { Yard } from './yard/Yard';
+import { SKY_HORIZON } from './yard/scenery';
 import {
   animalStandIn,
   PICK_KEY,
@@ -40,7 +42,8 @@ import {
 const MAX_PIXEL_RATIO = 2;
 /** A tap this close (CSS px) to an object's on-screen anchor counts as on it (DESIGN 17.5). */
 const MIN_TAP_RADIUS = 30;
-const SKY = 0xcdeeff;
+/** Scenery closer than this fraction of the camera's distance fades away. */
+const NEAR_FADE = 0.6;
 
 type PickKind = 'animal' | 'visitor';
 
@@ -67,7 +70,7 @@ export class World3D {
   private readonly scene = new Scene();
   private readonly rigs: Record<ViewZone, CameraRig>;
   private readonly zones: Record<ViewZone, Group>;
-  private readonly yard: YardPlaceholder;
+  private readonly yard = new Yard();
   private zone: ViewZone = 'yard';
   private readonly gestures: GestureRecognizer;
   private readonly raycaster = new Raycaster();
@@ -79,7 +82,6 @@ export class World3D {
   private readonly rippleGeo = new RingGeometry(0.15, 0.22, 32);
   private selectedId: string | null = null;
   private atHome = true;
-  private houseColor = '';
   private readonly offs: (() => void)[] = [];
   private readonly systemReducedMotion: boolean;
   private size = { width: 1, height: 1 };
@@ -97,11 +99,10 @@ export class World3D {
     this.renderer.domElement.style.display = 'block';
     host.appendChild(this.renderer.domElement);
 
-    this.scene.background = new Color(SKY);
-    this.scene.fog = new Fog(SKY, 30, 70);
+    this.scene.background = new Color(SKY_HORIZON);
+    this.scene.fog = new Fog(SKY_HORIZON, 32, 85);
     this.addLights();
 
-    this.yard = buildYardPlaceholder();
     this.zones = { yard: this.yard.group, house: buildHousePlaceholder() };
     this.zones.house.visible = false;
     this.scene.add(this.zones.yard, this.zones.house, this.ring);
@@ -173,6 +174,11 @@ export class World3D {
     };
   }
 
+  stats(): { calls: number; triangles: number } {
+    const { calls, triangles } = this.renderer.info.render;
+    return { calls, triangles };
+  }
+
   destroy(): void {
     this.renderer.setAnimationLoop(null);
     this.offs.forEach((off) => off());
@@ -191,19 +197,22 @@ export class World3D {
   // ---- Setup -----------------------------------------------------------------------------------
 
   private addLights(): void {
-    this.scene.add(new HemisphereLight(0xeaf6ff, 0x8fc47a, 1.8));
-    const sun = new DirectionalLight(0xfff3dd, 2.2);
-    sun.position.set(-5, 12, 7);
+    // Soft sky fill (blue from above, grass green bounced from below) and a warm sun from the
+    // upper left, like the original's lighting, casting soft shadows over the whole yard.
+    this.scene.add(new HemisphereLight(0xf2f9ff, 0xa8d68f, 1.35));
+    const sun = new DirectionalLight(0xfff1d8, 2.1);
+    sun.position.set(-6, 14, 8);
     sun.castShadow = true;
-    sun.shadow.mapSize.set(1024, 1024);
+    sun.shadow.mapSize.set(2048, 2048);
     const cam = sun.shadow.camera;
-    cam.left = -9;
-    cam.right = 9;
-    cam.top = 7;
-    cam.bottom = -7;
+    cam.left = -11;
+    cam.right = 11;
+    cam.top = 9;
+    cam.bottom = -9;
     cam.near = 1;
-    cam.far = 40;
-    sun.shadow.bias = -0.0005;
+    cam.far = 50;
+    sun.shadow.bias = -0.0008;
+    sun.shadow.normalBias = 0.02;
     // Softer edges (PCF blur radius).
     sun.shadow.radius = 3;
     this.scene.add(sun, sun.target);
@@ -379,6 +388,11 @@ export class World3D {
   private frame(): void {
     const now = performance.now();
     this.rig.update(now);
+    // Scenery nearer the camera than ~60% of the way to what it looks at dissolves (trees and
+    // fences never hide the yard).
+    const { target } = this.rig.view;
+    sceneryFade.value =
+      this.rig.camera.position.distanceTo(new Vector3(target.x, 0, target.z)) * NEAR_FADE;
     this.reconcile();
     this.updateRipples(now);
     this.renderer.render(this.scene, this.rig.camera);
@@ -415,12 +429,7 @@ export class World3D {
   /** Brings the 3D objects in line with the sim. */
   private reconcile(): void {
     const { world } = this.session.sim.state;
-    const exterior =
-      HOUSE_COLORS.find((c) => c.id === world.house.exteriorColor) ?? HOUSE_COLORS[0]!;
-    if (exterior.color !== this.houseColor) {
-      this.houseColor = exterior.color;
-      this.yard.setHouseColor(exterior.color);
-    }
+    this.yard.sync(world);
 
     const seen = new Set<string>();
     for (const animal of world.animals) {

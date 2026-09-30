@@ -100,7 +100,7 @@ describe('CameraRig controls', () => {
     expect(rig.view.polar).toBeLessThan(polar);
   });
 
-  it('never goes below 20 degrees above the ground, or past overhead', () => {
+  it('never goes below 12 degrees above the ground, or past overhead', () => {
     const rig = new CameraRig(framePoints('yard'));
     rig.orbit(0, -100_000, 800);
     expect(rig.view.polar).toBe(CAMERA_LIMITS.maxPolar);
@@ -176,11 +176,12 @@ describe('CameraRig controls', () => {
     expect(rig.isAtHome()).toBe(false);
   });
 
-  it('always has ground under the screen, even at the lowest angle', () => {
+  it('at the lowest angle, the ground fills most of the screen with a sliver of sky', () => {
     const rig = new CameraRig(framePoints('yard'));
     expect(rig.groundAt(new Vector2(0, 0))).not.toBeNull();
     rig.orbit(0, -100_000, 800);
-    for (const y of [-1, 0, 1]) expect(rig.groundAt(new Vector2(0, y))).not.toBeNull();
+    for (const y of [-1, 0, 0.7]) expect(rig.groundAt(new Vector2(0, y))).not.toBeNull();
+    expect(rig.groundAt(new Vector2(0, 1))).toBeNull();
   });
 });
 
