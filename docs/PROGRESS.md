@@ -1813,3 +1813,13 @@ With reduced motion, everything stays still and "achoo!" and "z z" stay put.
   - The avatar walks to a tap with motion on.
   - Nothing to sit on in the yard.
 - **Full e2e run:** 392 passed, 7 skipped, 0 failed.
+
+### Fix: labels showing on top of the Animal Card (2026-09-30)
+
+- **Bug (reported in play):** with an animal's card open, the name labels and badges of animals behind it drew on top of the card.
+- **Cause:** Three.js's label renderer gives each label a z-index (up to the number of labels) to sort them by distance. Nothing contained those z-indexes, so they competed with the menus, which have no z-index of their own.
+- **Fix:** the 3D world's host is now its own stacking layer (`isolation: isolate` in `GameCanvas.module.css`).
+  - Everything drawn in the world (the canvas, labels, floating text, flying coins, vet tools) stays under the menus, the HUD and the toasts.
+  - Flying coins now pass under the HUD's coin counter as they arrive.
+- **New e2e test:** a row of named animals behind the card. Every label under the card is drawn below it. The test briefly lets labels take the pointer, so the browser reports what's really on top. It failed before the fix (Back1's label was on top) and passes now on all three browser setups.
+- **Results:** all 133 3D e2e tests pass.

@@ -1,6 +1,12 @@
 .host {
   position: absolute;
   inset: 0;
+  /*
+   * Everything drawn in the world (the canvas, and the 3D world's labels, floating text, flying
+   * coins and vet tools) stays in this layer, under the menus. Without it, the labels' own
+   * z-index (Three.js sorts them by distance) could put a name label on top of a menu.
+   */
+  isolation: isolate;
   /* The world handles all gestures itself: no browser scroll/zoom on the canvas. */
   touch-action: none;
 }

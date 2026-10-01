@@ -262,4 +262,56 @@ test.describe('3D world (?3d)', () => {
       .toBeNull();
     await expect(page.getByTestId('game-canvas').getByText('Bunny', { exact: true })).toBeHidden();
   });
+
+  test('labels of animals behind never show on top of the open card', async ({ page }) => {
+    await seedSave(
+      page,
+      buildSave((s, now) => {
+        // A front animal to tap, and a row of animals behind it on the right, where the card opens.
+        s.world.animals.push(testAnimal(now, { id: 'front', position: { x: 0.6, y: 0.8 } }));
+        for (let i = 0; i < 6; i++) {
+          s.world.animals.push(
+            testAnimal(now, {
+              id: `back${i}`,
+              name: `Back${i}`,
+              position: { x: 0.72 + (i % 3) * 0.12, y: 0.1 + Math.floor(i / 3) * 0.35 },
+            }),
+          );
+        }
+      }),
+    );
+    await page.goto('./?3d');
+    await canvasReady(page);
+    await tapAt(page, await whereIs(page, 'animal', 'front'));
+    const card = page.getByRole('complementary', { name: /bunny card/i });
+    await expect(card).toBeVisible();
+    const cardBox = (await card.boundingBox())!;
+    // Labels ignore the pointer (so taps pass through); for this check only, let them be hit
+    // so the browser tells us what is really drawn on top.
+    await page.addStyleTag({
+      content: '[data-testid="game-canvas"] * { pointer-events: auto !important; }',
+    });
+    let checked = 0;
+    for (let i = 0; i < 6; i++) {
+      const label = page.getByTestId('game-canvas').getByText(`Back${i}`, { exact: true });
+      const b = await label.boundingBox();
+      if (!b) continue;
+      const x = b.x + b.width / 2;
+      const y = b.y + b.height / 2;
+      const underCard =
+        x > cardBox.x &&
+        x < cardBox.x + cardBox.width &&
+        y > cardBox.y &&
+        y < cardBox.y + cardBox.height;
+      if (!underCard) continue;
+      checked++;
+      // What's on top at the label's spot is the card, not the label.
+      const onTop = await page.evaluate(
+        ([px, py]) => !!document.elementFromPoint(px!, py!)?.closest('aside'),
+        [x, y],
+      );
+      expect(onTop, `Back${i}'s label is under the card`).toBe(true);
+    }
+    expect(checked, 'some labels sit behind the card').toBeGreaterThan(0);
+  });
 });
