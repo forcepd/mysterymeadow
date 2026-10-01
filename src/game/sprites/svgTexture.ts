@@ -49,6 +49,8 @@ export function ensureTexture(
   const finish = () => {
     const callbacks = pending.get(key) ?? [];
     pending.delete(key);
+    // The game was thrown away while this loaded (switching to the 3D world): nothing to do.
+    if (!(textures.game as Phaser.Game | null)) return;
     if (!textures.exists(key)) {
       const canvas = document.createElement('canvas');
       const px = texturePixels(size);

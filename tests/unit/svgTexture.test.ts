@@ -5,6 +5,8 @@ import { ensureTexture } from '../../src/game/sprites/svgTexture';
 /** A stand-in for Phaser's texture manager: just the calls ensureTexture makes. */
 class FakeTextures {
   readonly keys = new Set<string>();
+  /** Phaser sets this to null when the game is destroyed. */
+  game: object | null = {};
   exists(key: string) {
     return this.keys.has(key);
   }
@@ -42,6 +44,17 @@ describe('ensureTexture', () => {
       createElement: () => ({ width: 0, height: 0, getContext: () => ({ drawImage() {} }) }),
     });
   }
+
+  it('does nothing when a picture finishes loading after its game was destroyed', () => {
+    stubBrowser();
+    const textures = new FakeTextures();
+    const ready = vi.fn();
+    ensureTexture(sceneWith(textures), 'k', () => 'data:', { w: 10, h: 10 }, ready);
+    textures.game = null; // Switched to the 3D world while it loaded.
+    expect(() => images[0]!.onload!()).not.toThrow();
+    expect(textures.exists('k')).toBe(false);
+    expect(ready).not.toHaveBeenCalled();
+  });
 
   it('builds a picture once and shares it', () => {
     stubBrowser();
