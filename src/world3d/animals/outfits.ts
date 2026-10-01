@@ -20,10 +20,17 @@ import { animalMaterials } from './materials';
 import type { AnimalAnchors } from './model';
 
 /**
- * Pet outfits in 3D (DESIGN 10.3), fitted to each animal's own head, neck, body and eyes (its
- * model's anchors), like the original's fitted outfits: hats and bows on the head; sweaters,
- * capes, tutus and scarves on the body; glasses, bandanas and shades on the face. One merged
- * mesh per animal look and outfit, sharing the animals' materials (so it fades with them).
+ * Pet outfits in 3D (DESIGN 10.3), fitted to each animal's own shape (its model's anchors),
+ * like the original's fitted outfits:
+ *
+ * - On the head: a party hat, a bow, a flower clip, a crown, sitting on the head's surface.
+ * - On the body: a knitted sweater (a shell over the body from the neckline to a hem), a cape
+ *   hanging down the back, a tutu flaring from the waist, a scarf around the neckline.
+ * - On the face: glasses and star shades right on the eyes, a bandana at the neckline.
+ *
+ * Chibi heads sit down into their bodies, so "the neck" is a ring wrapping where the head meets
+ * the body (the model works it out per species; ponies have a real neck). One merged mesh per
+ * animal look and outfit, sharing the animals' materials (so it fades with them).
  */
 
 type V3 = [number, number, number];
@@ -31,23 +38,46 @@ type Parts = BufferGeometry[];
 const UP = new Vector3(0, 1, 0);
 const FORWARD = new Vector3(0, 0, 1);
 
-function along(at: V3, dir: V3, from = UP): Matrix4 {
-  const q = new Quaternion().setFromUnitVectors(from, new Vector3(...dir).normalize());
+/** A transform that turns `from` to `dir`, then moves to `at`. */
+function along(at: V3, dir: readonly number[], from = UP): Matrix4 {
+  const q = new Quaternion().setFromUnitVectors(
+    from,
+    new Vector3(dir[0], dir[1], dir[2]).normalize(),
+  );
   return new Matrix4().compose(new Vector3(...at), q, new Vector3(1, 1, 1));
 }
 
-const add = (a: V3, b: V3): V3 => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+const add = (a: readonly number[], b: readonly number[]): V3 => [
+  a[0]! + b[0]!,
+  a[1]! + b[1]!,
+  a[2]! + b[2]!,
+];
+const scale = (v: readonly number[], k: number): V3 => [v[0]! * k, v[1]! * k, v[2]! * k];
 
-/** Where the neck is: under the head, a little toward the front. */
-function neck(a: AnimalAnchors): { at: V3; r: number } {
-  const hr = a.head.radius;
+/** A point on the head's surface at `deg` from the top toward the side (+ = right). */
+function onHead(a: AnimalAnchors, deg: number, forward = 0.15, out = 0): V3 {
   const [hx, hy, hz] = a.head.center;
-  return { at: [hx, hy - hr * 0.8, hz * 0.6], r: hr * 0.66 };
+  const [rx, ry, rz] = a.head.radii;
+  const t = (deg * Math.PI) / 180;
+  const n = new Vector3(Math.sin(t), Math.cos(t), forward).normalize();
+  return [hx + n.x * (rx + out), hy + n.y * (ry + out), hz + n.z * (rz + out)];
 }
 
-function headTop(a: AnimalAnchors): V3 {
-  const [x, y, z] = a.head.center;
-  return [x, y + a.head.radius * 0.88, z - a.head.radius * 0.05];
+/** An oval ring (in the XZ plane) around the neckline or waist, tipped to `up`. */
+function ring(
+  P: Parts,
+  color: string,
+  center: V3,
+  rx: number,
+  rz: number,
+  tube: number,
+  up: readonly number[] = [0, 1, 0],
+) {
+  // A unit torus squashed to the oval, keeping the tube round-ish (tube is in units).
+  const g = new TorusGeometry(1, tube / Math.max(rx, rz), 6, 20);
+  g.rotateX(Math.PI / 2);
+  g.scale(rx, Math.max(rx, rz), rz);
+  P.push(part(g, color, { matrix: along(center, up) }));
 }
 
 function star(r: number): Shape {
@@ -55,35 +85,56 @@ function star(r: number): Shape {
   for (let i = 0; i < 10; i++) {
     const rr = i % 2 ? r * 0.45 : r;
     const ang = (i / 10) * Math.PI * 2 + Math.PI / 2;
-    const x = Math.cos(ang) * rr;
-    const y = Math.sin(ang) * rr;
-    if (i === 0) s.moveTo(x, y);
-    else s.lineTo(x, y);
+    if (i === 0) s.moveTo(Math.cos(ang) * rr, Math.sin(ang) * rr);
+    else s.lineTo(Math.cos(ang) * rr, Math.sin(ang) * rr);
   }
   s.closePath();
   return s;
+}
+
+/** The polar angle on the body's (scaled) shell at height y (0 = top). */
+function thetaAt(a: AnimalAnchors, y: number, k: number): number {
+  const by = a.body.center[1];
+  const ry = a.body.radii[1] * k;
+  return Math.acos(Math.min(1, Math.max(-1, (y - by) / ry)));
+}
+
+/** A band of the body's shell between two polar angles (sweaters, capes), just outside it. */
+function shell(
+  P: Parts,
+  a: AnimalAnchors,
+  color: string,
+  t0: number,
+  t1: number,
+  k: number,
+  phi: [number, number] = [0, Math.PI * 2],
+) {
+  const [bx, by, bz] = a.body.center;
+  const [rx, ry, rz] = a.body.radii;
+  const rows = Math.max(2, Math.round((t1 - t0) * 8));
+  const g = new SphereGeometry(1, 18, rows, phi[0], phi[1], t0, t1 - t0);
+  P.push(part(g, color, { x: bx, y: by, z: bz, s: [rx * k, ry * k, rz * k] }));
 }
 
 const BUILD: Record<string, (P: Parts, a: AnimalAnchors, c: string, c2: string) => void> = {
   // ---- Head ----
   party: (P, a, c, c2) => {
     const hr = a.head.radius;
-    const base = headTop(a);
-    const tilt: V3 = [0.25, 1, -0.1];
-    const h = hr * 0.95;
-    const cone = new ConeGeometry(hr * 0.4, h, 12);
+    const base = onHead(a, 12, 0.1, -hr * 0.05);
+    const tilt = [0.22, 1, 0.05];
+    const h = hr * 1.0;
+    const cone = new ConeGeometry(hr * 0.38, h, 14);
     cone.translate(0, h / 2, 0);
     P.push(part(cone, c, { matrix: along(base, tilt) }));
-    const d = new Vector3(...tilt).normalize();
-    for (const t of [0.25, 0.55]) {
-      const ring = new TorusGeometry(hr * 0.4 * (1 - t), hr * 0.035, 5, 16);
-      ring.rotateX(Math.PI / 2);
-      P.push(
-        part(ring, c2, { matrix: along(add(base, [d.x * h * t, d.y * h * t, d.z * h * t]), tilt) }),
-      );
+    for (const t of [0.22, 0.5]) {
+      const r0 = hr * 0.385 * (1 - t);
+      const band = new CylinderGeometry(r0 - hr * 0.038, r0, h * 0.1, 14, 1, true);
+      band.translate(0, h * (t + 0.05), 0);
+      P.push(part(band, c2, { matrix: along(base, tilt) }));
     }
+    const d = new Vector3(tilt[0], tilt[1], tilt[2]).normalize();
     P.push(
-      part(new SphereGeometry(hr * 0.13, 10, 8), c2, {
+      part(new SphereGeometry(hr * 0.14, 10, 8), c2, {
         x: base[0] + d.x * h,
         y: base[1] + d.y * h,
         z: base[2] + d.z * h,
@@ -92,59 +143,70 @@ const BUILD: Record<string, (P: Parts, a: AnimalAnchors, c: string, c2: string) 
   },
   bow: (P, a, c) => {
     const hr = a.head.radius;
-    const at = add(headTop(a), [hr * 0.38, hr * 0.02, hr * 0.12]);
+    // Standing up on the side of the head, facing forward.
+    const at = onHead(a, 40, 0.35, hr * 0.06);
     for (const side of [-1, 1]) {
       P.push(
-        part(new SphereGeometry(1, 12, 8), c, {
-          x: at[0] + side * hr * 0.2,
-          y: at[1],
+        part(new SphereGeometry(1, 10, 7), c, {
+          x: at[0] + side * hr * 0.22,
+          y: at[1] + hr * 0.02,
           z: at[2],
-          s: [hr * 0.2, hr * 0.14, hr * 0.08],
-          rz: side * 0.3,
+          s: [hr * 0.24, hr * 0.17, hr * 0.09],
+          rz: side * 0.35,
         }),
       );
     }
     P.push(
-      part(new SphereGeometry(hr * 0.08, 8, 6), darken(c, 0.15), {
+      part(new SphereGeometry(hr * 0.1, 8, 6), darken(c, 0.15), {
         x: at[0],
         y: at[1],
-        z: at[2] + 0.01,
+        z: at[2] + hr * 0.03,
       }),
     );
   },
   flower: (P, a, c, c2) => {
     const hr = a.head.radius;
-    const at = add(headTop(a), [-hr * 0.38, -hr * 0.08, hr * 0.2]);
+    const at = onHead(a, -40, 0.35, hr * 0.06);
+    const [hx, hy, hz] = a.head.center;
+    const out = new Vector3(at[0] - hx, at[1] - hy, at[2] - hz)
+      .normalize()
+      .add(new Vector3(0, 0, 0.8))
+      .normalize();
+    const dir = [out.x, out.y, out.z];
     for (let i = 0; i < 5; i++) {
       const ang = (i / 5) * Math.PI * 2;
-      P.push(
-        part(new SphereGeometry(1, 7, 5), c2, {
-          x: at[0] + Math.cos(ang) * hr * 0.14,
-          y: at[1] + Math.sin(ang) * hr * 0.14,
-          z: at[2],
-          s: [hr * 0.11, hr * 0.11, hr * 0.05],
-        }),
-      );
+      const g = new SphereGeometry(1, 8, 6);
+      g.scale(hr * 0.13, hr * 0.13, hr * 0.05);
+      g.translate(Math.cos(ang) * hr * 0.15, Math.sin(ang) * hr * 0.15, 0);
+      P.push(part(g, c2, { matrix: along(at, dir, FORWARD) }));
     }
-    P.push(
-      part(new SphereGeometry(hr * 0.09, 10, 7), c, { x: at[0], y: at[1], z: at[2] + hr * 0.03 }),
-    );
+    const mid = new SphereGeometry(hr * 0.09, 8, 6);
+    mid.translate(0, 0, hr * 0.04);
+    P.push(part(mid, c, { matrix: along(at, dir, FORWARD) }));
   },
   crown: (P, a, c) => {
     const hr = a.head.radius;
-    const base = add(headTop(a), [0, -hr * 0.05, 0]);
-    const band = new CylinderGeometry(hr * 0.42, hr * 0.46, hr * 0.2, 14, 1, true);
-    P.push(part(band, c, { x: base[0], y: base[1] + hr * 0.1, z: base[2] }));
+    const [hx, hy, hz] = a.head.center;
+    const [rx, ry, rz] = a.head.radii;
+    // A band sitting down on the head (just outside its surface), with points and gems.
+    const y = hy + ry * 0.72;
+    const s = Math.sqrt(1 - 0.72 * 0.72);
+    const bx = rx * s * 1.06;
+    const bz = rz * s * 1.06;
+    const h = hr * 0.3;
+    const band = new CylinderGeometry(1, 1, h, 20, 1, true);
+    band.scale(bx, 1, bz);
+    P.push(part(band, c, { x: hx, y: y + h / 2, z: hz }));
     for (let i = 0; i < 5; i++) {
       const ang = (i / 5) * Math.PI * 2 + Math.PI / 2;
-      const x = base[0] + Math.cos(ang) * hr * 0.42;
-      const z = base[2] + Math.sin(ang) * hr * 0.42;
-      P.push(part(new ConeGeometry(hr * 0.09, hr * 0.2, 6), c, { x, y: base[1] + hr * 0.28, z }));
+      const x = hx + Math.cos(ang) * bx;
+      const z = hz + Math.sin(ang) * bz;
+      P.push(part(new ConeGeometry(hr * 0.1, hr * 0.24, 6), c, { x, y: y + h + hr * 0.11, z }));
       P.push(
-        part(new SphereGeometry(hr * 0.045, 8, 6), i % 2 ? '#ff6f9a' : '#6fa8ef', {
-          x: x * 1.02,
-          y: base[1] + hr * 0.12,
-          z: z + (z > base[2] ? 0.01 : -0.01),
+        part(new SphereGeometry(hr * 0.05, 8, 6), i % 2 ? '#ff6f9a' : '#6fa8ef', {
+          x: hx + Math.cos(ang) * bx * 1.04,
+          y: y + h * 0.5,
+          z: hz + Math.sin(ang) * bz * 1.04,
         }),
       );
     }
@@ -152,192 +214,199 @@ const BUILD: Record<string, (P: Parts, a: AnimalAnchors, c: string, c2: string) 
 
   // ---- Body ----
   sweater: (P, a, c, c2) => {
-    const [bx, by, bz] = a.body.center;
-    const [rx, ry, rz] = a.body.radii;
-    const s: V3 = [rx * 1.08, ry * 1.08, rz * 1.08];
-    // Knitted over the top of the body, leaving the belly bottom and feet out.
-    const shell = new SphereGeometry(1, 14, 9, 0, Math.PI * 2, 0, Math.PI * 0.64);
-    P.push(part(shell, c, { x: bx, y: by, z: bz, s }));
-    // Two stripes around it (at polar angles on the shell), and a ribbed hem at its edge.
-    const ring = (theta: number, color: string, thick: number) => {
-      const y = Math.cos(theta);
-      const rr = Math.sin(theta) * 1.01;
-      const g = new TorusGeometry(1, thick, 5, 16);
-      g.rotateX(Math.PI / 2);
-      P.push(
-        part(g, color, { x: bx, y: by + y * s[1], z: bz, s: [rr * s[0], s[1] * 0.6, rr * s[2]] }),
-      );
-    };
-    ring(Math.PI * 0.34, c2, 0.045);
-    ring(Math.PI * 0.46, c2, 0.045);
-    ring(Math.PI * 0.64, darken(c, 0.12), 0.06);
-    const n = neck(a);
-    const collar = new TorusGeometry(n.r, n.r * 0.2, 5, 16);
-    collar.rotateX(Math.PI / 2);
-    P.push(part(collar, lighten(c, 0.15), { x: n.at[0], y: n.at[1], z: n.at[2] }));
+    // Knitted over the body from the neckline down to a hem: two flat stripes, a ribbed hem,
+    // and a ribbed collar at the neckline.
+    const k = 1.07;
+    const t0 = thetaAt(a, a.neck.center[1], k);
+    const t1 = Math.PI * 0.68;
+    const span = t1 - t0;
+    const band = (from: number, to: number, color: string, kk = k) =>
+      shell(P, a, color, t0 + span * from, t0 + span * to, kk);
+    band(0, 0.38, c);
+    band(0.38, 0.46, c2, k + 0.004);
+    band(0.46, 0.62, c);
+    band(0.62, 0.7, c2, k + 0.004);
+    band(0.7, 0.9, c);
+    band(0.9, 1, darken(c, 0.12), k + 0.01);
+    const n = a.neck;
+    // A rolled turtleneck collar under the chin.
+    ring(P, darken(c, 0.08), n.center, n.rx, n.rz, 0.055, n.up);
   },
   cape: (P, a, c, c2) => {
-    const [bx, by, bz] = a.body.center;
-    const [rx, ry, rz] = a.body.radii;
-    const n = neck(a);
-    // A cloak over the back, from the shoulders down.
-    const cloak = new SphereGeometry(1, 12, 8, Math.PI, Math.PI, Math.PI * 0.18, Math.PI * 0.72);
+    const n = a.neck;
+    if (a.longBody) {
+      // Long bodies and ponies: draped over the back like a blanket, with a darker hem.
+      shell(P, a, c, 0, Math.PI * 0.42, 1.1);
+      shell(P, a, darken(c, 0.2), Math.PI * 0.42, Math.PI * 0.47, 1.115);
+      ring(P, c, n.center, n.rx, n.rz, 0.035, n.up);
+      return;
+    }
+
+    // A cloak hanging from the neckline down to the ground behind, flaring out, with a darker
+    // lining (seen at its edges), a collar, and a gold clasp in front.
+    const [, , bz] = a.body.center;
+    const [rx, , rz] = a.body.radii;
+    const y0 = n.center[1];
+    const y1 = 0.03;
+    const h = y0 - y1;
+    const top = Math.max(n.rx, n.rz) * 1.04;
+    const bottom = Math.min(Math.max(rx, rz) * 1.32, top * 1.5);
+    const depth = rz / rx;
+    // Around the back and a little way round the sides (cylinder angle 0 faces +z).
+    const cloak = (k: number) => {
+      const g = new CylinderGeometry(
+        top * k,
+        bottom * k,
+        h,
+        22,
+        2,
+        true,
+        Math.PI * 0.38,
+        Math.PI * 1.24,
+      );
+      g.scale(1, 1, depth);
+      return g;
+    };
+    const at = { x: n.center[0], y: y1 + h / 2, z: (bz + n.center[2]) / 2 - 0.02 };
+    P.push(part(cloak(1), c, at));
+    P.push(inside(part(cloak(0.97), darken(c, 0.25), at)));
+    ring(P, c, n.center, n.rx, n.rz, 0.04, n.up);
     P.push(
-      part(cloak, c, {
-        x: bx,
-        y: by + ry * 0.1,
-        z: bz - rz * 0.05,
-        s: [rx * 1.18, ry * 1.12, rz * 1.18],
-      }),
-    );
-    const collar = new TorusGeometry(n.r * 1.05, n.r * 0.16, 5, 16);
-    collar.rotateX(Math.PI / 2);
-    P.push(part(collar, c, { x: n.at[0], y: n.at[1], z: n.at[2] }));
-    P.push(
-      part(new SphereGeometry(n.r * 0.2, 10, 8), c2, {
-        x: n.at[0],
-        y: n.at[1],
-        z: n.at[2] + n.r * 1.02,
+      part(new SphereGeometry(a.head.radius * 0.11, 10, 8), c2, {
+        x: n.center[0],
+        y: n.center[1],
+        z: n.center[2] + n.rz + 0.01,
       }),
     );
   },
   tutu: (P, a, c) => {
-    const [bx, by, bz] = a.body.center;
-    const [rx, ry, rz] = a.body.radii;
-    // Two ruffled layers flaring out from the waist, a little wider than the body.
-    const w = Math.max(rx, rz);
-    const y = by - ry * 0.05;
-    for (const [k, color] of [
-      [1, c],
-      [0.75, lighten(c, 0.35)],
+    // Two ruffled layers flaring out from the waist.
+    const w = a.waist;
+    const ry = a.body.radii[1];
+    for (const [k, color, drop] of [
+      [1, c, 0],
+      [0.75, lighten(c, 0.35), ry * 0.12],
     ] as const) {
-      const skirt = new CylinderGeometry(w * 1.0, w * (1.12 + 0.1 * k), ry * 0.42 * k, 16, 1, true);
-      skirt.scale(1, 1, rz / w);
-      P.push(part(skirt, color, { x: bx, y: y - ry * 0.2 * (1 - k), z: bz }));
+      const h = ry * 0.42 * k;
+      const skirt = new CylinderGeometry(1.03, 1.42 + 0.1 * k, h, 22, 1, true);
+      skirt.scale(w.rx, 1, w.rz);
+      P.push(part(skirt, color, { x: w.center[0], y: w.center[1] - h / 2 - drop, z: w.center[2] }));
     }
+    ring(P, lighten(c, 0.2), w.center, w.rx * 1.04, w.rz * 1.04, 0.03);
   },
   scarf: (P, a, c, c2) => {
-    const n = neck(a);
-    const wrap = new TorusGeometry(n.r, n.r * 0.3, 5, 16);
-    wrap.rotateX(Math.PI / 2);
-    P.push(part(wrap, c, { x: n.at[0], y: n.at[1], z: n.at[2] }));
-    const stripe = new TorusGeometry(n.r * 1.01, n.r * 0.08, 5, 16);
-    stripe.rotateX(Math.PI / 2);
-    P.push(part(stripe, c2, { x: n.at[0], y: n.at[1] + n.r * 0.05, z: n.at[2] }));
-    // The end hanging down the front, with a fringe.
-    const endAt: V3 = [n.at[0] + n.r * 0.45, n.at[1] - n.r * 0.55, n.at[2] + n.r * 0.95];
+    // Wrapped around the neckline, with a stripe and an end hanging down the front.
+    const n = a.neck;
+    const hr = a.head.radius;
+    const t = hr * 0.14;
+    ring(P, c, n.center, n.rx + t * 0.4, n.rz + t * 0.4, t, n.up);
+    ring(P, c2, add(n.center, scale(n.up, t * 0.6)), n.rx + t * 0.3, n.rz + t * 0.3, t * 0.4, n.up);
+    const end: V3 = [n.center[0] + n.rx * 0.35, n.center[1] - hr * 0.3, n.center[2] + n.rz + t];
     P.push(
-      part(new RoundedBoxGeometry(n.r * 0.42, n.r * 0.9, n.r * 0.14, 2, n.r * 0.06), c, {
-        x: endAt[0],
-        y: endAt[1],
-        z: endAt[2],
-        rz: 0.15,
+      part(new RoundedBoxGeometry(hr * 0.24, hr * 0.55, hr * 0.08, 2, hr * 0.03), c, {
+        x: end[0],
+        y: end[1],
+        z: end[2],
+        rz: 0.12,
+        rx: -0.3,
       }),
     );
     P.push(
-      part(new RoundedBoxGeometry(n.r * 0.44, n.r * 0.1, n.r * 0.15, 1, n.r * 0.03), c2, {
-        x: endAt[0] - n.r * 0.06,
-        y: endAt[1] - n.r * 0.3,
-        z: endAt[2],
-        rz: 0.15,
+      part(new RoundedBoxGeometry(hr * 0.25, hr * 0.06, hr * 0.09, 1, hr * 0.02), c2, {
+        x: end[0] - hr * 0.02,
+        y: end[1] - hr * 0.2,
+        z: end[2] + hr * 0.06,
+        rz: 0.12,
+        rx: -0.3,
       }),
     );
   },
 
   // ---- Face ----
   glasses: (P, a, c) => {
-    const hr = a.head.radius;
-    const [l, r] = a.eyes;
-    for (const e of [l, r]) {
-      P.push(
-        part(new TorusGeometry(hr * 0.2, hr * 0.035, 5, 16), c, {
-          matrix: along(add(e, scale(a.facing, hr * 0.2)), a.facing, FORWARD),
-        }),
-      );
+    const r = a.eyeRadius * 1.25;
+    const [l, rt] = a.eyes;
+    for (const e of [l, rt]) {
+      const lens = new TorusGeometry(r, r * 0.16, 6, 20);
+      P.push(part(lens, c, { matrix: along(add(e, scale(a.facing, 0.008)), a.facing, FORWARD) }));
     }
-    rodBetween(
-      P,
-      c,
-      add(l, scale(a.facing, hr * 0.2)),
-      add(r, scale(a.facing, hr * 0.2)),
-      hr * 0.03,
-      hr * 0.4,
-    );
+    bridge(P, c, l, rt, a.facing, r);
   },
   star: (P, a, c) => {
-    const hr = a.head.radius;
-    const [l, r] = a.eyes;
-    for (const e of [l, r]) {
-      const g = new ExtrudeGeometry(star(hr * 0.24), { depth: hr * 0.05, bevelEnabled: false });
-      P.push(part(g, c, { matrix: along(add(e, scale(a.facing, hr * 0.2)), a.facing, FORWARD) }));
+    const r = a.eyeRadius * 1.45;
+    const [l, rt] = a.eyes;
+    for (const e of [l, rt]) {
+      const g = new ExtrudeGeometry(star(r), { depth: 0.015, bevelEnabled: false });
+      P.push(part(g, c, { matrix: along(add(e, scale(a.facing, 0.004)), a.facing, FORWARD) }));
     }
-    rodBetween(
-      P,
-      darken(c, 0.2),
-      add(l, scale(a.facing, hr * 0.2)),
-      add(r, scale(a.facing, hr * 0.2)),
-      hr * 0.03,
-      hr * 0.4,
-    );
+    bridge(P, darken(c, 0.2), l, rt, a.facing, r * 0.75);
   },
   bandana: (P, a, c, c2) => {
-    const n = neck(a);
+    // Tied around the neckline, with a triangle of polka-dot cloth on the chest.
+    const n = a.neck;
     const hr = a.head.radius;
-    const [, by, bz] = a.body.center;
-    const [, ry, rz] = a.body.radii;
-    // Tied around the neck, with a triangle of cloth hanging on the chest (in front of the body,
-    // tipped back a little so it shows from above), with polka dots.
-    const wrap = new TorusGeometry(n.r * 0.98, n.r * 0.12, 5, 16);
-    wrap.rotateX(Math.PI / 2);
-    P.push(part(wrap, c, { x: n.at[0], y: n.at[1], z: n.at[2] }));
-    const top = Math.min(n.at[1], by + ry * 0.75);
-    const front = Math.max(n.at[2] + n.r, bz + rz * 0.92) + 0.01;
-    const w = hr * 0.95;
-    const h = hr * 0.75;
+    ring(P, c, n.center, n.rx + 0.01, n.rz + 0.01, 0.03, n.up);
+    const front: V3 = [n.center[0], n.center[1] - 0.01, n.center[2] + n.rz + 0.025];
+    const w = Math.min(n.rx * 1.1, hr * 0.9);
+    const h = w * 0.75;
     const tri = new Shape();
     tri.moveTo(-w / 2, 0);
     tri.lineTo(w / 2, 0);
     tri.lineTo(0, -h);
     tri.closePath();
-    const place = (g: BufferGeometry, color: string) =>
-      P.push(part(g, color, { x: n.at[0], y: top, z: front, rx: -0.45 }));
-    place(new ExtrudeGeometry(tri, { depth: 0.012, bevelEnabled: false }), c);
+    // Hanging down the chest (only tipped back a little), so it shows below the chin.
+    const lay = { x: front[0], y: front[1], z: front[2], rx: -0.2 };
+    P.push(part(new ExtrudeGeometry(tri, { depth: 0.015, bevelEnabled: false }), c, lay));
     for (const [dx, dy] of [
-      [-0.2, -0.18],
-      [0.2, -0.18],
-      [0, -0.5],
+      [-0.18, -0.18],
+      [0.18, -0.18],
+      [0, -0.48],
     ] as const) {
-      const dot = new SphereGeometry(hr * 0.06, 6, 5);
+      const dot = new SphereGeometry(hr * 0.055, 6, 5);
       dot.scale(1, 1, 0.4);
-      dot.translate(dx * w, dy * h, 0.015);
-      place(dot, c2);
+      dot.translate(dx * w, dy * h, 0.02);
+      P.push(part(dot, c2, lay));
     }
   },
 };
 
-function scale(v: readonly [number, number, number], k: number): V3 {
-  return [v[0] * k, v[1] * k, v[2] * k];
+/** A surface turned inside out (faces and normals flipped), for linings seen from inside. */
+function inside(g: BufferGeometry): BufferGeometry {
+  const pos = g.getAttribute('position');
+  const nor = g.getAttribute('normal');
+  for (let i = 0; i < pos.count; i += 3) {
+    // Swap the 2nd and 3rd corner of each triangle.
+    for (const attr of [pos, nor, g.getAttribute('color')]) {
+      if (!attr) continue;
+      const tmp = [attr.getX(i + 1), attr.getY(i + 1), attr.getZ(i + 1)];
+      attr.setXYZ(i + 1, attr.getX(i + 2), attr.getY(i + 2), attr.getZ(i + 2));
+      attr.setXYZ(i + 2, tmp[0]!, tmp[1]!, tmp[2]!);
+    }
+  }
+  for (let i = 0; i < nor.count; i++) nor.setXYZ(i, -nor.getX(i), -nor.getY(i), -nor.getZ(i));
+  return g;
 }
 
-/** The glasses' bridge: a short rod between the two lenses' inner edges. */
-function rodBetween(P: Parts, color: string, a: V3, b: V3, radius: number, lensGap: number) {
-  const va = new Vector3(...a);
-  const vb = new Vector3(...b);
-  const mid = va.clone().add(vb).multiplyScalar(0.5);
-  const len = Math.max(0.001, va.distanceTo(vb) - lensGap);
-  const g = new CylinderGeometry(radius, radius, len, 6);
-  const dir = vb.sub(va);
+/** The bridge between two lenses (just the gap between their inner edges). */
+function bridge(
+  P: Parts,
+  color: string,
+  l: readonly number[],
+  r: readonly number[],
+  facing: readonly number[],
+  lens: number,
+) {
+  const a = new Vector3(l[0], l[1], l[2]);
+  const b = new Vector3(r[0], r[1], r[2]);
+  const mid = a
+    .clone()
+    .add(b)
+    .multiplyScalar(0.5)
+    .addScaledVector(new Vector3(facing[0], facing[1], facing[2]), 0.008);
+  const len = Math.max(0.01, a.distanceTo(b) - lens * 2);
+  const dir = b.sub(a);
+  const g = new CylinderGeometry(lens * 0.13, lens * 0.13, len, 6);
   P.push(part(g, color, { matrix: along([mid.x, mid.y, mid.z], [dir.x, dir.y, dir.z]) }));
-  // Arms back to the ears.
-  for (const e of [a, b]) {
-    const side = Math.sign(e[0]) || 1;
-    const arm = new CylinderGeometry(radius * 0.8, radius * 0.8, lensGap * 0.9, 5);
-    P.push(
-      part(arm, color, {
-        matrix: along([e[0] + side * lensGap * 0.5, e[1], e[2] - lensGap * 0.3], [0, 0, 1]),
-      }),
-    );
-  }
 }
 
 const cache = new Map<string, Mesh>();

@@ -55,10 +55,22 @@ export interface AnimalModel {
 }
 
 export interface AnimalAnchors {
-  head: { center: V3; radius: number };
+  /** The head's center, its size, and its own radii (wide heads are wider). */
+  head: { center: V3; radius: number; radii: V3 };
   body: { center: V3; radii: V3 };
-  /** Left and right eye, on the face surface. */
+  /** Left and right eye: the front of each eye (where glasses sit). */
   eyes: [V3, V3];
+  /** How big an eye is (for fitting glasses). */
+  eyeRadius: number;
+  /**
+   * The neckline: a ring around where the head meets the body (for scarves, bandanas and
+   * collars). Chibi heads sit down into the body, so it wraps both. Ponies have a real neck.
+   */
+  neck: { center: V3; rx: number; rz: number; up: V3 };
+  /** The waist: a ring around the body a little below its middle (for tutus). */
+  waist: { center: V3; rx: number; rz: number };
+  /** Long and pony bodies stretch out behind the head (capes drape over their backs). */
+  longBody: boolean;
   nose: V3;
   /** Left and right cheek. */
   cheeks: [V3, V3];
@@ -891,14 +903,66 @@ function hashSeed(text: string): number {
   return h >>> 0;
 }
 
+/** Half-widths of an ellipsoid's slice at height y (0 when y misses it). */
+function slice(center: V3, radii: V3, y: number): { rx: number; rz: number } {
+  const t = (y - center[1]) / radii[1];
+  const s = Math.sqrt(Math.max(0, 1 - t * t));
+  return { rx: radii[0] * s, rz: radii[2] * s };
+}
+
+function neckFor(f: Frame): AnimalAnchors['neck'] {
+  const { c, r } = f.body;
+  const hc = f.head.c;
+  const hr = f.head.r;
+  if (f.art.body.shape === 'pony') {
+    // Around the middle of the pony's neck, tipped along it.
+    const a = new Vector3(0, c[1] + r[1] * 0.5, c[2] + r[2] * 0.62);
+    const b = new Vector3(...add(hc, [0, -f.hr * 0.4, -f.hr * 0.2]));
+    const mid = a.clone().lerp(b, 0.45);
+    const up = b.sub(a).normalize();
+    const radius = f.hr * 0.45 * 1.2;
+    return { center: [mid.x, mid.y, mid.z], rx: radius, rz: radius, up: [up.x, up.y, up.z] };
+  }
+  if (f.art.body.shape === 'long') {
+    // The head sits at the front of a long body: hug the bottom of the head (the body carries
+    // on behind it), rather than going around the whole body.
+    const y = hc[1] - hr[1] * 0.7;
+    const hs = slice(hc, hr, y);
+    return { center: [hc[0], y, hc[2]], rx: hs.rx * 1.06, rz: hs.rz * 1.06, up: [0, 1, 0] };
+  }
+  // Where the bottom of the head meets the body, wrapping both.
+  const y = Math.min(c[1] + r[1] * 0.95, Math.max(c[1], hc[1] - hr[1] * 0.75));
+  const hs = slice(hc, hr, y);
+  const bs = slice(c, r, y);
+  const rx = Math.max(hs.rx, bs.rx);
+  const zMin = Math.min(hc[2] - hs.rz, c[2] - bs.rz);
+  const zMax = Math.max(hc[2] + hs.rz, c[2] + bs.rz);
+  return {
+    center: [0, y, (zMin + zMax) / 2],
+    rx: rx * 1.03,
+    rz: ((zMax - zMin) / 2) * 1.03,
+    up: [0, 1, 0],
+  };
+}
+
 function anchorsFor(f: Frame): AnimalAnchors {
   const { c, r } = f.body;
   const front = f.art.body.shape === 'long' ? 0.72 : 0.62;
   const middle = face(f, 0, 0);
+  // The front of the eyes: owl eyes are big discs that stand out further.
+  const owl = f.art.eyes === 'owl';
+  const eye = (u: number) =>
+    face(f, u * (owl ? 0.4 : 0.36), owl ? 0.14 : 0.1, owl ? 0.075 : 0.045).at;
+  const waistY = c[1] - r[1] * 0.15;
+  const waist = slice(c, r, waistY);
   return {
-    head: { center: f.head.c, radius: f.hr },
+    head: { center: f.head.c, radius: f.hr, radii: f.head.r },
     body: { center: c, radii: r },
-    eyes: [face(f, -0.36, 0.1, 0.01).at, face(f, 0.36, 0.1, 0.01).at],
+    eyes: [eye(-1), eye(1)],
+    eyeRadius: f.hr * (owl ? 0.36 : 0.21),
+    neck: neckFor(f),
+    waist: { center: [c[0], waistY, c[2]], rx: waist.rx, rz: waist.rz },
+    longBody: f.art.body.shape === 'long' || f.art.body.shape === 'pony',
     nose: face(f, 0, -0.16, 0.02).at,
     cheeks: [face(f, -0.6, -0.22).at, face(f, 0.6, -0.22).at],
     paw: [r[0] * 0.48, 0.05, c[2] + r[2] * front],

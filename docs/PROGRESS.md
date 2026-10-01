@@ -1740,3 +1740,38 @@ With reduced motion, everything stays still and "achoo!" and "z z" stay put.
 - The Vet Clinic title can overlap the floating clue icons for a moment.
 - The avatar's portrait is drawn straight on; the original's was a flat front view.
 - **Coming in 3D-6:** the iPad performance pass, moving the original e2e tests to the 3D world, making 3D the default, and removing Phaser and the SVG renderers.
+
+### Fix after 3D-5: outfits didn't display correctly (2026-09-30)
+
+- **Bug (reported in play):** several pet outfits looked wrong on the 3D animals.
+  - **Hidden inside the body:** the scarf, and the bandana's tie.
+  - **Wrong look:** the bandana's triangle hung low like a red arrow. The sweater looked like a swim ring with bulging stripes. The cape showed only as a red ring. The tutu and bow barely showed.
+  - **Sunk in:** the crown sat sunk into the head, reading as a headband.
+  - **Glasses:** they appeared at the mouth instead of the eyes.
+- **Causes:**
+  - **No neck:** outfits were placed from a "neck" point under the head, but the chibi heads sit down into their bodies, so that point (and anything around it) was inside the body.
+  - **Glasses parallax:** the glasses were pushed out in front of the face to clear the owl's big eyes. From the camera above, that made them appear much lower than the eyes.
+  - **The unit test only checked size:** it checked that outfits stayed within the animal's size, not that they could be seen.
+- **Fix:** the models now report better anchors, and every outfit is refitted to them (`animals/outfits.ts`).
+  - **New anchors:**
+    - A real **neckline** ring per body shape. For round, bird and tall bodies it wraps where the head meets the body; long bodies hug the bottom of the head; ponies get a ring around their actual neck.
+    - A **waist** ring.
+    - The **front of each eye** and its size.
+    - The head's full proportions.
+  - **The refitted outfits:**
+    - **Scarf:** wraps the neckline, with a stripe and a hanging end.
+    - **Bandana:** tied at the neckline, with its polka-dot triangle hanging down the chest below the chin.
+    - **Sweater:** a knitted shell from the neckline to a ribbed hem, with flat stripes and a rolled turtleneck.
+    - **Cape:** a cloak hanging from the neckline to the ground, flaring out, with a darker lining. On long bodies and ponies it drapes over the back like a blanket.
+    - **Tutu:** flares from the waist.
+    - **Crown:** sits up on the head.
+    - **Bow and flower:** bigger, standing on the side of the head.
+    - **Glasses and star shades:** sit right on the eyes, sized to each species' eyes (the owl's big ones included).
+- **Checked:**
+  - Close-up contact sheets of all 11 outfits on a bunny, puppy, penguin, unicorn and otter.
+  - Dressed-up portraits of six species.
+- **New unit tests**, which would have caught this, run on every species:
+  - Most of every outfit is outside the body and head (so it shows).
+  - Glasses and shades sit on the eyes and close to the face.
+  - Hats sit on top of the head.
+- **Results:** 610 unit tests pass. All 91 3D e2e tests pass on the three browser setups (dress-up, clinic, world, care).

@@ -49,6 +49,67 @@ describe('pet outfits in 3D', () => {
   });
 });
 
+describe('outfits show (not hidden inside the animal)', () => {
+  /** Inside an ellipsoid (center, radii), shrunk a little so surface parts count as outside. */
+  const inside = (p: Vector3, c: readonly number[], r: readonly number[], k = 0.98) =>
+    ((p.x - c[0]!) / (r[0]! * k)) ** 2 +
+      ((p.y - c[1]!) / (r[1]! * k)) ** 2 +
+      ((p.z - c[2]!) / (r[2]! * k)) ** 2 <
+    1;
+
+  it('most of every outfit is outside the body and head, on every species', () => {
+    for (const s of SPECIES) {
+      const v = s.variants[0]!.id;
+      const { anchors } = animalModel(s.id, v);
+      for (const o of OUTFITS) {
+        const mesh = outfitMesh(`${s.id}|${v}|false`, anchors, { [o.slot]: o.id })!;
+        const pos = mesh.geometry.getAttribute('position');
+        let out = 0;
+        const p = new Vector3();
+        for (let i = 0; i < pos.count; i++) {
+          p.fromBufferAttribute(pos, i);
+          const hidden =
+            inside(p, anchors.body.center, anchors.body.radii) ||
+            inside(p, anchors.head.center, anchors.head.radii);
+          if (!hidden) out++;
+        }
+        expect(out / pos.count, `${s.id} ${o.id} shows`).toBeGreaterThan(0.5);
+      }
+    }
+  });
+
+  it('glasses and shades sit right on the eyes, not floating in front of the face', () => {
+    for (const s of SPECIES) {
+      const v = s.variants[0]!.id;
+      const { anchors } = animalModel(s.id, v);
+      for (const id of ['round_specs', 'star_shades']) {
+        const mesh = outfitMesh(`${s.id}|${v}|false`, anchors, { face: id })!;
+        const box = boxOf(mesh.geometry);
+        const [l, r] = anchors.eyes;
+        const eyesY = (l[1] + r[1]) / 2;
+        // Centered on the eyes, within a lens of them in height, and close to the face.
+        expect(box.getCenter(new Vector3()).y, `${s.id} ${id} height`).toBeCloseTo(eyesY, 1);
+        // (Lenses tilt with the face, so their bottom rim reaches a little forward.)
+        expect(box.max.z, `${s.id} ${id} close to the face`).toBeLessThan(
+          Math.max(l[2], r[2]) + anchors.eyeRadius * 0.75,
+        );
+      }
+    }
+  });
+
+  it('hats sit on top of the head', () => {
+    for (const s of SPECIES) {
+      const v = s.variants[0]!.id;
+      const { anchors } = animalModel(s.id, v);
+      const top = anchors.head.center[1] + anchors.head.radii[1] * 0.4;
+      for (const id of ['party_hat', 'pet_crown', 'big_bow', 'flower_clip']) {
+        const box = boxOf(outfitMesh(`${s.id}|${v}|false`, anchors, { head: id })!.geometry);
+        expect(box.getCenter(new Vector3()).y, `${s.id} ${id}`).toBeGreaterThan(top);
+      }
+    }
+  });
+});
+
 describe('Dex silhouettes in 3D', () => {
   it('are one dark color with no face, for every species', () => {
     const dark = new Color('#4b4560');
