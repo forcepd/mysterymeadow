@@ -1,7 +1,7 @@
 import { Group, Mesh } from 'three';
 import { avatarKey } from '../../art/avatarSvg';
 import { gridArea, type Rect } from '../../game/layout';
-import type { AvatarLoadout } from '../../profile/avatar';
+import { wornIn, type AvatarLoadout } from '../../profile/avatar';
 import type { FrameContext } from '../animals/AnimalActor';
 import { animalMaterials } from '../animals/materials';
 import { turnToward, Walker } from '../animals/motion';
@@ -59,6 +59,8 @@ export class AvatarActor {
   private sitting: Sitting | null = null;
   /** Where it's heading to sit (it walks there first). */
   private pendingSeat: Seat | null = null;
+  /** The hat it's wearing (for tests). */
+  private hat: string | null = null;
   private readonly bounds: { minX: number; maxX: number; minZ: number; maxZ: number };
 
   constructor(zone: ViewZone, door: { x: number; y: number }) {
@@ -82,9 +84,17 @@ export class AvatarActor {
   }
 
   /** Where it is and what it's doing (for tests). */
-  get state(): { x: number; z: number; walking: boolean; sitting: boolean; seat: string | null } {
+  get state(): {
+    x: number;
+    z: number;
+    walking: boolean;
+    sitting: boolean;
+    seat: string | null;
+    hat: string | null;
+  } {
     const p = this.walker.pos;
     return {
+      hat: this.hat,
       x: p.x,
       z: p.z,
       walking: this.walker.walking,
@@ -97,6 +107,7 @@ export class AvatarActor {
     const key = avatarKey(loadout);
     if (key === this.key) return;
     this.key = key;
+    this.hat = wornIn(loadout, 'hat') ?? null;
     for (const g of [this.figure, ...Object.values(this.limbs)]) {
       for (const child of [...g.children]) if (child instanceof Mesh) child.removeFromParent();
     }

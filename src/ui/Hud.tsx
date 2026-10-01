@@ -13,7 +13,7 @@ import { useAppEvent } from './useAppEvent';
  * visitors, Settings, and the menu: Yard/House, Pets, Dex, Home Store, Real Estate, Decorate.
  */
 export function Hud() {
-  const { sim, profile } = useSim();
+  const { sim, profile, shownAvatar } = useSim();
   const [zone, setZone] = useState<'yard' | 'house'>('yard');
   const [decorating, setDecorating] = useState(false);
   const [inVet, setInVet] = useState(false);
@@ -57,7 +57,7 @@ export function Hud() {
           aria-label={`${profile.username}: my style`}
           onClick={() => appBus.emit('openScreen', { screen: 'style' })}
         >
-          <AvatarView loadout={profile.avatar} height={120} className={styles.meFace} />
+          <AvatarView loadout={shownAvatar} height={120} className={styles.meFace} />
         </button>
         <div className={common.pill} aria-label={`${coins} coins`} data-testid="coins">
           <span className={`${styles.icon} ${styles.coin}`} aria-hidden="true" />

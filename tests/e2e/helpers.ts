@@ -1,11 +1,13 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 import { gateSlot, tileToWorld, yardToWorld, WORLD_WIDTH } from '../../src/game/layout';
 import { DEFAULT_PROFILE } from '../../src/bridge/gameSession';
+import { BIRTHDAY } from '../../src/config/birthday';
 import { makePin } from '../../src/profile/pin';
 import type { DeviceRecord } from '../../src/save/device';
 import { toSaveFile, type SaveFile } from '../../src/save/schema';
 import { FakeClock } from '../../src/sim/clock';
 import { GameSim } from '../../src/sim/GameSim';
+import { dayKey } from '../../src/sim/systems/tricks';
 import type { Animal, SimState, Visitor } from '../../src/sim/types';
 
 /** Taps with touch on touch devices (iPad projects) and clicks with a mouse elsewhere. */
@@ -80,10 +82,11 @@ export function gateTapPoint(index = 0) {
 }
 
 /** Builds a save "now" (browser and test share the machine clock) and lets a test edit it. */
-export function buildSave(edit: (state: SimState, now: number) => void) {
-  const now = Date.now();
+export function buildSave(edit: (state: SimState, now: number) => void, now = Date.now()) {
   const sim = GameSim.newGame({ clock: new FakeClock(now), seed: 1 });
   const state = sim.toState();
+  // Tests run on any day, October 1 too: the birthday card only shows where a test asks for it.
+  state.world.birthday.lastGreetedDay = dayKey(now);
   edit(state, now);
   return toSaveFile(DEFAULT_PROFILE, state);
 }
@@ -221,4 +224,19 @@ export async function audit(page: Page, where: string) {
     return out;
   });
   expect(problems, where).toEqual([]);
+}
+
+/**
+ * On the birthday (October 1), a new player meets the birthday card once the tutorial is over:
+ * close it. On any other day there's no card.
+ */
+export async function closeBirthdayCard(page: Page) {
+  const birthday = await page.evaluate(
+    ([month, day]) => new Date().getMonth() + 1 === month && new Date().getDate() === day,
+    [BIRTHDAY.month, BIRTHDAY.day] as const,
+  );
+  if (!birthday) return;
+  const card = page.getByTestId('birthday-card');
+  await press(page, card.getByRole('button', { name: /thank you/i }));
+  await expect(card).toBeHidden();
 }

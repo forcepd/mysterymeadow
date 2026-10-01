@@ -2,6 +2,7 @@ import { lazy, Suspense, type ReactNode } from 'react';
 import type { GameSession } from '../bridge/gameSession';
 import { AnimalCard } from './AnimalCard';
 import { AwayCard } from './AwayCard';
+import { BirthdayGreeting } from './BirthdayGreeting';
 import { DailyGift } from './DailyGift';
 import { DecorateBar } from './DecorateBar';
 import { DexScreen } from './DexScreen';
@@ -45,6 +46,7 @@ export function App({ session }: { session: GameSession }) {
         <TutorialCoach />
         <Toasts />
         <AwayCard />
+        <BirthdayGreeting />
         <DailyGift />
         {DebugPanel && (
           <Suspense fallback={null}>

@@ -683,6 +683,23 @@ function accessories(P: Parts, b: Body, loadout: AvatarLoadout) {
           );
         }
         break;
+      case 'party': {
+        // A tall cone party hat with dots and a pompom on top (kept low-poly: it's worn all day).
+        const dots = hat.color2 ?? '#ffd84d';
+        const base = hy + hr * 0.78;
+        const h = hr * 1.45;
+        const r = hr * 0.55;
+        P.push(part(new ConeGeometry(r, h, 14), hat.color, { x: hx, y: base + h / 2, z: hz }));
+        for (let i = 0; i < 5; i++) {
+          // Around the front half, where they're seen.
+          const a = Math.PI * (0.15 + i * 0.175);
+          const t = i % 2 ? 0.5 : 0.22; // how far up the cone
+          const rr = r * (1 - t) + hr * 0.015;
+          ball(P, dots, [hx + Math.cos(a) * rr, base + h * t, hz + Math.sin(a) * rr], hr * 0.09, 5);
+        }
+        ball(P, dots, [hx, base + h + hr * 0.1, hz], hr * 0.2, 7);
+        break;
+      }
       default: // flower crown
         for (let i = 0; i < 9; i++) {
           const a = (i / 9) * Math.PI * 2;

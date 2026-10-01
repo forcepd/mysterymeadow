@@ -1881,3 +1881,49 @@ With reduced motion, everything stays still and "achoo!" and "z z" stay put.
 
 - In 3D, an iPad can draw at a lower resolution for a few seconds after a slow moment (the governor steps back up after 6 fast seconds).
 - The PWA's offline precache includes both worlds (2.7 MB in all), even though a device only uses one.
+
+## Birthday surprise: "Happy Birthday Grace!" on October 1 (built 2026-10-01)
+
+### What was built
+
+- **The birthday card:** on October 1 (local time), the first play of the day shows "Happy Birthday Grace!", with balloons and the player's avatar in the birthday hat.
+  - It shows once per profile per year. Tapping "Thank you!" saves that it was seen, so a reload later that day doesn't show it again. It comes back next October 1.
+  - **Order:** it waits for the tutorial and the "While you were away" card, and comes before the daily present.
+  - A brand new player on October 1 gets it too, once the tutorial is done.
+  - Closing it plays the fanfare.
+- **The birthday hat:** a purple party hat with yellow dots and a pompom. The avatar wears it all day on October 1, in both worlds (3D and classic 2D), the HUD face and the card.
+  - It goes on in place of any other hat, but it's never saved into the outfit: the next day the avatar looks as it did before. Playing across midnight puts it on (or takes it off) right away.
+  - It's never sold in the Boutique or shown in the Creator or Wardrobe, and it can't be put into a saved outfit.
+  - The Style screen still shows (and edits) the real outfit, without the birthday hat.
+- **Data:** the name, date and hat live in `src/config/birthday.ts`. The hat is the avatar item `hat_birthday`, marked `special` in `avatarItems.ts`.
+- **Sim:** `sim/systems/birthday.ts`: `isBirthday`, `birthdayGreetingReady`, `seeBirthdayGreeting`. GameSim commands: `birthdayToday()`, `birthdayGreetingReady()`, `seeBirthdayGreeting()`, plus the `birthdayGreeted` event.
+- **Session:** `GameSession.shownAvatar` is what the avatar wears in the world and the HUD: the outfit, plus the birthday hat today.
+- **Save v8:** `world.birthday.lastGreetedDay`. The v7 → v8 migration sets it to `''` (never seen).
+- **3D portraits:** the avatar portrait's framing now grows when something sticks up past the usual height, so the tall hat isn't cut off. Nothing changes for other outfits.
+- **Test hook:** `meadow3d.avatar()` also reports the `hat` being worn.
+
+### Tests
+
+- **Unit:** 643 in total (14 new, in `tests/unit/birthday.test.ts`):
+  - October 1 is the birthday all day, local time, every year; not the days around it.
+  - The card waits on the birthday (new games too) and shows once. It stays seen after a reload, never shows on other days, and comes back the next year.
+  - The hat isn't offered, owned or valid in a saved outfit. On the birthday it replaces any other hat without changing the outfit. The original's SVG draws it.
+  - Session: the hat shows only on the birthday, isn't saved, goes on and off at midnight, and stays on top after changing outfits. Seeing the card is saved right away.
+  - The v7 → v8 migration.
+- **E2E:** a new `world3d-birthday.spec.ts` (2 tests × 3 browser setups) sets the browser's date:
+  - On October 1, the card shows with the hat on. The present comes after the card is closed. After a reload, there's no card but the hat stays on.
+  - On October 2, there's no card and no hat.
+- **Test saves:** `buildSave` (e2e helpers) now marks the birthday card as seen. Otherwise every seeded test run on October 1 would open on the card.
+- **Onboarding flows** (`profiles.spec.ts`, `world3d-flows.spec.ts`) call a new `closeBirthdayCard` helper after the tutorial. On October 1 it closes the card, and on other days it does nothing. (These were built and run on October 1, so they really met the card.)
+- **Full e2e run:** 417 passed, 10 skipped, 2 failed. Both failures are the known flaky "feed" step in `profiles.spec.ts`'s onboarding test (see Phase 3D-5's notes). It fails the same way without this change (1 in 12 runs on the previous commit), and it happens before the tutorial ends, so before any birthday card.
+
+### Decisions (defaults I picked)
+
+- "Logs in" means the first time a profile plays that day, after onboarding's tutorial.
+- The hat can't be taken off on the birthday, and other hats can't be worn over it.
+- `dressUp.test.ts`'s height cap is looser for `special` items, because the party hat is meant to stand tall.
+- The 3D hat is low-poly (about 350 triangles). The busy-yard e2e budget (350k triangles, avatar drawn twice with its shadow) had little room left.
+
+### Known issues
+
+- The busy-yard triangle budget in `world3d-dress.spec.ts` now has only about 70 triangles to spare on October 1.

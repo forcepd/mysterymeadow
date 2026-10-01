@@ -134,6 +134,19 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
       },
     };
   },
+
+  /**
+   * v7 -> v8 (birthday surprise): the birthday card has never been seen. Literal values on
+   * purpose (see v1 -> v2).
+   */
+  7: (save) => {
+    const world = save.world as Record<string, unknown>;
+    return {
+      ...save,
+      schemaVersion: 8,
+      world: { birthday: { lastGreetedDay: '' }, ...world },
+    };
+  },
 };
 
 export class SaveError extends Error {

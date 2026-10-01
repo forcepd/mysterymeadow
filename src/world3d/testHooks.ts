@@ -36,6 +36,7 @@ export interface Meadow3DHooks {
     walking: boolean;
     sitting: boolean;
     seat: string | null;
+    hat: string | null;
   };
   /** Effect particles alive right now. */
   particles(): number;

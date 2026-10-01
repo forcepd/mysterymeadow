@@ -3,7 +3,7 @@ import type { AvatarLoadout } from '../profile/avatar';
 import type { SimMeta, SimState, WorldState } from '../sim/types';
 
 /** Bump this and add a migration in migrations.ts for ANY change to saved state. */
-export const CURRENT_SCHEMA_VERSION = 7;
+export const CURRENT_SCHEMA_VERSION = 8;
 
 /** Where a new profile is in the onboarding tutorial (DESIGN 5 step 4). */
 export type TutorialStep = 'reveal' | 'feed' | 'poop' | 'card' | 'done';

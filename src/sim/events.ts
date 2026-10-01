@@ -101,6 +101,8 @@ export type SimEvents = {
   findCollected: { find: YardFind; coins: number };
   findGone: { find: YardFind };
   dailyGiftOpened: { reward: DailyGiftReward };
+  /** The birthday card was seen (once on the birthday). */
+  birthdayGreeted: undefined;
   /** Something in the state may have changed (a tick ran or a command was called). */
   changed: undefined;
 };

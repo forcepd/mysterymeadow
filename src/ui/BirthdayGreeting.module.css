@@ -1,0 +1,32 @@
+.title {
+  margin: 0;
+  font-size: 34px;
+  font-weight: 800;
+  color: #b0459a;
+}
+
+.confetti {
+  margin: 0;
+  font-size: 40px;
+  letter-spacing: 8px;
+}
+
+.avatar {
+  animation: hop 1.2s ease-in-out infinite;
+}
+
+@keyframes hop {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .avatar {
+    animation: none;
+  }
+}

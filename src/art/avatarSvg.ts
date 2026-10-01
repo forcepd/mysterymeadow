@@ -359,6 +359,17 @@ export function avatarSvg(loadout: AvatarLoadout): string {
       parts.push(
         `<path d="M34 26 Q60 12 86 26" fill="none" stroke="${OUTLINE}" stroke-width="4"/>`,
       );
+    } else if (hat.kind === 'party') {
+      const dots = hat.color2 ?? '#ffd84d';
+      parts.push(`<path d="M42 26 L60 -12 L78 26 Z" fill="${hat.color}" ${stroke}/>`);
+      for (const [x, y] of [
+        [54, 16],
+        [66, 18],
+        [60, 4],
+      ] as const) {
+        parts.push(`<circle cx="${x}" cy="${y}" r="3.5" fill="${dots}"/>`);
+      }
+      parts.push(`<circle cx="60" cy="-14" r="7" fill="${dots}" ${stroke}/>`);
     } else if (hat.kind === 'flowers') {
       parts.push(
         `<path d="M32 28 Q60 12 88 28" fill="none" stroke="${hat.color}" stroke-width="6"/>`,

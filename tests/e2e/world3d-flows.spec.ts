@@ -2,7 +2,15 @@ import { expect, test, type Page } from '@playwright/test';
 import type { DeviceRecord } from '../../src/save/device';
 import type { SaveFile } from '../../src/save/schema';
 import type { PickKind } from '../../src/world3d/pick';
-import { audit, buildSave, canvasReady, press, seedSave, testAnimal } from './helpers';
+import {
+  audit,
+  buildSave,
+  closeBirthdayCard,
+  canvasReady,
+  press,
+  seedSave,
+  testAnimal,
+} from './helpers';
 import { tapAt, whereIs } from './helpers3d';
 
 /**
@@ -105,6 +113,7 @@ test.describe('the 3D world plays the whole game', () => {
     await expect(coach(page)).toContainText('Great job!');
     await press(page, coach(page).getByRole('button', { name: /let’s play/i }));
     await expect(coach(page)).toBeHidden();
+    await closeBirthdayCard(page);
     await press(page, card.getByRole('button', { name: 'Close' }));
 
     // Well past the wait, sell an animal that's ready (try each, as they wander).

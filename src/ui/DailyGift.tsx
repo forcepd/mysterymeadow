@@ -8,7 +8,7 @@ import { useSim } from './session';
 
 /**
  * A present on the first play of each day (early-game pass). Waits for the tutorial and the
- * "While you were away" card, then asks to be opened.
+ * "While you were away" card (and the birthday card, on the birthday), then asks to be opened.
  */
 export function DailyGift() {
   const session = useSim();
@@ -20,7 +20,12 @@ export function DailyGift() {
     [session],
   );
 
-  const ready = sim.dailyGiftReady() && session.profile.tutorial === 'done' && !awayOpen;
+  // On the birthday, the birthday card comes first.
+  const ready =
+    sim.dailyGiftReady() &&
+    !sim.birthdayGreetingReady() &&
+    session.profile.tutorial === 'done' &&
+    !awayOpen;
   if (!opened && !ready) return null;
 
   const open = () => {

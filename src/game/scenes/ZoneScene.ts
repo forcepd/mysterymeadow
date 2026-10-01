@@ -112,7 +112,7 @@ export abstract class ZoneScene extends Phaser.Scene {
       walkable,
       this.reducedMotion,
     );
-    this.avatar.setLoadout(this.session.profile.avatar);
+    this.avatar.setLoadout(this.session.shownAvatar);
 
     this.input.on(
       Phaser.Input.Events.POINTER_DOWN,
@@ -198,8 +198,8 @@ export abstract class ZoneScene extends Phaser.Scene {
         if (b) this.fx.burst(b.x, b.y - 10, [0xe0a868, 0xffd84d, 0xffffff], 8);
       }),
       appBus.on('selectAnimal', ({ id }) => this.select(id)),
-      this.session.events.on('profileChanged', ({ profile }) =>
-        this.avatar.setLoadout(profile.avatar),
+      this.session.events.on('profileChanged', () =>
+        this.avatar.setLoadout(this.session.shownAvatar),
       ),
       appBus.on('decorate', ({ on }) => this.setDecorating(on)),
       appBus.on('decorPick', ({ itemId }) => {

@@ -4,7 +4,13 @@ import { getIllness } from '../config/illnesses';
 import { getItem } from '../config/items';
 import { getTrick } from '../config/tricks';
 import { addActivity, type ActivityEntry } from '../profile/activity';
-import { DEFAULT_LOADOUT, isValidLoadout, owns, type AvatarLoadout } from '../profile/avatar';
+import {
+  DEFAULT_LOADOUT,
+  isValidLoadout,
+  owns,
+  shownLoadout,
+  type AvatarLoadout,
+} from '../profile/avatar';
 import { SaveManager, type KeyValueStore } from '../save/SaveManager';
 import {
   newProfile,
@@ -30,7 +36,10 @@ export const DEFAULT_PROFILE: Profile = {
 export type SessionEvents = {
   /** A save attempt failed (e.g. storage blocked in a private window). */
   saveFailed: { error: unknown };
-  /** The profile changed (avatar, owned items, outfits, tutorial step). */
+  /**
+   * The profile changed (avatar, owned items, outfits, tutorial step), or the birthday began or
+   * ended (so `shownAvatar` changed).
+   */
   profileChanged: { profile: Profile };
   /** A "While you were away" card to show (or null once it's closed). */
   awayChanged: { card: AwayCard | null };
@@ -62,6 +71,8 @@ export class GameSession {
   private stopped = false;
   private stateVersion = 0;
   private awayNow: AwayCard | null = null;
+  private birthday: boolean;
+  private shownCache?: { avatar: AvatarLoadout; birthday: boolean; shown: AvatarLoadout };
 
   private constructor(
     readonly sim: GameSim,
@@ -72,6 +83,7 @@ export class GameSession {
     /** True if this session started a brand new game. */
     readonly isNewGame: boolean,
   ) {
+    this.birthday = sim.birthdayToday();
     const bump = () => this.stateVersion++;
     sim.events.on('changed', bump);
     this.events.on('profileChanged', bump);
@@ -105,6 +117,7 @@ export class GameSession {
       'goalClaimed',
       'findCollected',
       'dailyGiftOpened',
+      'birthdayGreeted',
     ] as const) {
       sim.events.on(event, () => void this.save());
     }
@@ -125,6 +138,21 @@ export class GameSession {
 
   get profile(): Readonly<Profile> {
     return this.currentProfile;
+  }
+
+  /** What the avatar wears in the world and the HUD: the outfit, plus the birthday hat today. */
+  get shownAvatar(): AvatarLoadout {
+    // The same object until something changes, so pictures of it aren't redrawn every render.
+    const { avatar } = this.currentProfile;
+    const c = this.shownCache;
+    if (c?.avatar !== avatar || c.birthday !== this.birthday) {
+      this.shownCache = {
+        avatar,
+        birthday: this.birthday,
+        shown: shownLoadout(avatar, this.birthday),
+      };
+    }
+    return this.shownCache!.shown;
   }
 
   /** Parent Mode's recent activity, newest first. */
@@ -164,7 +192,14 @@ export class GameSession {
 
   /** Call every animation frame. */
   frame(): void {
-    if (!this.stopped) this.sim.update();
+    if (this.stopped) return;
+    this.sim.update();
+    // Playing past midnight into (or out of) the birthday puts the hat on (or takes it off).
+    const birthday = this.sim.birthdayToday();
+    if (birthday !== this.birthday) {
+      this.birthday = birthday;
+      this.events.emit('profileChanged', { profile: this.currentProfile });
+    }
   }
 
   /** The page was hidden: save now, since it may never come back. */

@@ -55,6 +55,8 @@ export interface AvatarItemDef {
   readonly kind: string;
   readonly color: string;
   readonly color2?: string;
+  /** Never sold or offered: only worn on a special day (see birthday.ts). */
+  readonly special?: boolean;
 }
 
 /** Boutique categories (DESIGN 13.3), in shop order. */
@@ -195,6 +197,7 @@ export const AVATAR_ITEMS: readonly AvatarItemDef[] = deepFreeze([
   i('hat', 'hat_flowers', 'Flower crown',  35, 'flowers','#7cc46a', '#ff9fc4'),
   i('hat', 'hat_crown',   'Tiny crown',    60, 'crown',  '#ffd84d'),
   i('hat', 'hat_ears',    'Bunny ears',    40, 'ears',   '#fff6e3', '#ff9fc4'),
+  { ...i('hat', 'hat_birthday', 'Birthday hat', 0, 'party', '#b69bff', '#ffd84d'), special: true },
   i('glasses', 'glasses_round', 'Round glasses', 0,  'round', '#4a3b33'),
   i('glasses', 'glasses_star',  'Star glasses',  30, 'star',  '#ff6f9a'),
   i('glasses', 'glasses_sun',   'Sunglasses',    25, 'sun',   '#2b2220'),
@@ -209,6 +212,7 @@ export function getAvatarItem(id: string): AvatarItemDef | undefined {
   return AVATAR_ITEMS.find((a) => a.id === id);
 }
 
+/** What the Boutique and Wardrobe offer for a slot (special-day items are never offered). */
 export function itemsForSlot(slot: AvatarSlot): AvatarItemDef[] {
-  return AVATAR_ITEMS.filter((a) => a.slot === slot);
+  return AVATAR_ITEMS.filter((a) => a.slot === slot && !a.special);
 }

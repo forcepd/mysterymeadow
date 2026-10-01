@@ -156,6 +156,8 @@ export interface WorldState {
   nextFindAt: Ms;
   /** Daily present: the local day (YYYY-MM-DD) it was last opened (save v7). */
   dailyGift: { lastDay: string };
+  /** Birthday card: the local day (YYYY-MM-DD) it was last seen (save v8). */
+  birthday: { lastGreetedDay: string };
 }
 
 /** A special pick for one of a new player's first visitors. */

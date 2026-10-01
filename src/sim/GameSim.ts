@@ -94,6 +94,7 @@ import {
 } from './systems/vet';
 import { canSell, findAnimal, salePrice, sell } from './systems/selling';
 import { revealVisitor } from './systems/visitors';
+import { birthdayGreetingReady, isBirthday, seeBirthdayGreeting } from './systems/birthday';
 import { dailyGiftReady, openDailyGift, type DailyGiftReward } from './systems/dailyGift';
 import { collectFind } from './systems/finds';
 import { claimGoal, readyGoalCount, trackGoals } from './systems/goals';
@@ -212,6 +213,8 @@ export class GameSim {
         nextFindAt: now + minutes(BALANCE.finds.firstAfterMinutes),
         // The first present comes tomorrow: day one has the tutorial and goals already.
         dailyGift: { lastDay: dayKey(now) },
+        // A brand new player on the birthday gets the card too.
+        birthday: { lastGreetedDay: '' },
       },
       meta: {
         createdAt: now,
@@ -346,6 +349,14 @@ export class GameSim {
     const result = openDailyGift(this.ctx, this.now());
     this.afterChange(true);
     return result;
+  }
+
+  /** The birthday card was seen and closed. */
+  seeBirthdayGreeting(): boolean {
+    this.update();
+    const seen = seeBirthdayGreeting(this.ctx, this.now());
+    this.afterChange(seen);
+    return seen;
   }
 
   /** Keep in a free Pet Slot. Refused when slots are full (the UI opens the Swap screen). */
@@ -514,6 +525,16 @@ export class GameSim {
   /** A daily present is waiting to be opened. */
   dailyGiftReady(): boolean {
     return dailyGiftReady(this.ctx.state.world, this.now());
+  }
+
+  /** Today is the birthday (the avatar wears the birthday hat). */
+  birthdayToday(): boolean {
+    return isBirthday(this.now());
+  }
+
+  /** The birthday card is waiting to be seen. */
+  birthdayGreetingReady(): boolean {
+    return birthdayGreetingReady(this.ctx.state.world, this.now());
   }
 
   animalCount(): number {

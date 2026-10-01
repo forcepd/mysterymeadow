@@ -146,7 +146,8 @@ describe('the avatar in 3D', () => {
       }
       const box = boxOf(avatarMesh(loadout).geometry);
       expect(box.min.y, item.id).toBeGreaterThanOrEqual(-0.02);
-      expect(box.max.y, item.id).toBeLessThan(AVATAR_HEIGHT + 0.25);
+      // The birthday party hat is meant to stand tall (its portraits grow to fit it).
+      expect(box.max.y, item.id).toBeLessThan(AVATAR_HEIGHT + (item.special ? 0.45 : 0.25));
       expect(box.max.y, item.id).toBeGreaterThan(1.1);
     }
   });

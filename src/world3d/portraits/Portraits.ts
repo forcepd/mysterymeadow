@@ -1,4 +1,5 @@
 import {
+  Box3,
   DirectionalLight,
   Group,
   HemisphereLight,
@@ -64,9 +65,11 @@ export class Portraits implements PortraitProviders {
       group.add(avatarMesh(loadout));
       return this.draw(group, AVATAR.w, AVATAR.h, () => {
         // Full height, straight on and a touch above, like the original's standing avatar.
+        // Taller when something (like the birthday hat) sticks up past the usual height.
         this.camera.aspect = AVATAR.w / AVATAR.h;
-        const mid = AVATAR_HEIGHT * 0.5;
-        const distance = (AVATAR_HEIGHT * 0.56) / Math.tan((this.camera.fov * Math.PI) / 360);
+        const height = Math.max(AVATAR_HEIGHT, new Box3().setFromObject(group).max.y + 0.03);
+        const mid = height * 0.5;
+        const distance = (height * 0.56) / Math.tan((this.camera.fov * Math.PI) / 360);
         this.camera.position.set(0, mid + distance * 0.12, distance);
         this.camera.lookAt(0, mid, 0);
       });

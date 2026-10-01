@@ -3,6 +3,7 @@ import { numberInWords } from '../../src/profile/pin';
 import type { DeviceRecord } from '../../src/save/device';
 import type { SaveFile } from '../../src/save/schema';
 import {
+  closeBirthdayCard,
   TEST_PIN,
   animalTapPoint,
   bowlTapPoint,
@@ -108,6 +109,7 @@ test.describe('profiles, onboarding, and the tutorial', () => {
     await expect(coach(page)).toContainText('Great job!');
     await press(page, coach(page).getByRole('button', { name: /let’s play/i }));
     await expect(coach(page)).toBeHidden();
+    await closeBirthdayCard(page);
     await press(page, card.getByRole('button', { name: 'Close' }));
 
     // Well past the wait, it's ready for a new home. (If the visitor was pregnant, its babies
@@ -162,6 +164,7 @@ test.describe('profiles, onboarding, and the tutorial', () => {
     await canvasReady(page);
     await press(page, coach(page).getByRole('button', { name: /skip tutorial/i }));
     await expect(coach(page)).toBeHidden();
+    await closeBirthdayCard(page);
 
     await press(page, page.getByRole('button', { name: 'Settings' }));
     await press(page, page.getByRole('button', { name: /switch player/i }));

@@ -140,7 +140,7 @@ export class World3D {
       house: new AvatarActor('house', INSIDE_DOOR),
     };
     for (const zone of ['yard', 'house'] as ViewZone[]) {
-      this.avatars[zone].setLoadout(session.profile.avatar);
+      this.avatars[zone].setLoadout(session.shownAvatar);
       this.zones[zone].add(this.avatars[zone].root);
     }
     this.decorate = new Decorate(
@@ -382,9 +382,9 @@ export class World3D {
         this.zones[this.zone].visible = true;
         appBus.emit('sceneChanged', { scene: this.zone });
       }),
-      this.session.events.on('profileChanged', ({ profile }) => {
+      this.session.events.on('profileChanged', () => {
         for (const zone of ['yard', 'house'] as ViewZone[])
-          this.avatars[zone].setLoadout(profile.avatar);
+          this.avatars[zone].setLoadout(this.session.shownAvatar);
       }),
       appBus.on('resetView', () => this.resetView()),
     );

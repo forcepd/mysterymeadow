@@ -6,6 +6,7 @@ import {
   getAvatarItem,
   type AvatarSlot,
 } from '../config/avatarItems';
+import { BIRTHDAY } from '../config/birthday';
 
 /** DESIGN 19 AvatarLoadout: one item id per slot (makeup and accessories are optional). */
 export interface AvatarLoadout {
@@ -42,7 +43,8 @@ export const DEFAULT_LOADOUT: AvatarLoadout = {
 };
 
 export function isStarter(itemId: string): boolean {
-  return getAvatarItem(itemId)?.cost === 0;
+  const def = getAvatarItem(itemId);
+  return def?.cost === 0 && !def.special;
 }
 
 /** Starter items are everyone's; Boutique items once bought. */
@@ -140,5 +142,13 @@ export function isValidLoadout(loadout: AvatarLoadout, owned: readonly string[])
 
 /** Starter ids per slot (the Creator in onboarding shows only these). */
 export function starterItems(slot: AvatarSlot) {
-  return AVATAR_ITEMS.filter((a) => a.slot === slot && a.cost === 0);
+  return AVATAR_ITEMS.filter((a) => a.slot === slot && a.cost === 0 && !a.special);
+}
+
+/**
+ * What the avatar is shown wearing: its outfit, plus the birthday hat on the birthday (in place
+ * of any other hat). Never saved: the next day the outfit is back as it was.
+ */
+export function shownLoadout(loadout: AvatarLoadout, birthday: boolean): AvatarLoadout {
+  return birthday ? equip(loadout, BIRTHDAY.hatItemId) : loadout;
 }
