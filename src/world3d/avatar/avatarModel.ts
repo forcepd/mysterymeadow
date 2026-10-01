@@ -783,13 +783,21 @@ function accessories(P: Parts, b: Body, loadout: AvatarLoadout) {
   }
 }
 
-const cache = new Map<string, Mesh>();
+/** Which part of the rig a piece belongs to (legs and arms swing; the rest is the body). */
+export type Limb = 'body' | 'legL' | 'legR' | 'armL' | 'armR';
 
-/** The avatar for a loadout (cached per look): one outlined toon mesh. */
-export function avatarMesh(loadout: AvatarLoadout): Mesh {
-  const key = avatarKey(loadout);
-  const hit = cache.get(key);
-  if (hit) return hit.clone();
+/** Where each limb turns: hips for legs, shoulders for arms (model space). */
+export interface RigPivots {
+  legL: V3;
+  legR: V3;
+  armL: V3;
+  armR: V3;
+  /** Hip height (where the avatar sits on a seat). */
+  hipY: number;
+}
+
+/** Every piece of the avatar for a loadout, before merging. */
+function buildParts(loadout: AvatarLoadout): { parts: Parts; b: Body } {
   const b = bodyFor(loadout);
   const P: Parts = [];
   skinParts(P, b);
@@ -813,6 +821,79 @@ export function avatarMesh(loadout: AvatarLoadout): Mesh {
     lips ?? item(loadout, 'mouth')?.color ?? '#8a3b3b',
   );
   accessories(P, b, loadout);
+  return { parts: P, b };
+}
+
+/**
+ * Sorts a piece into the rig by where it is: below the hips and to one side is a leg (skin,
+ * trouser leg, shoe); out past the torso between the hips and shoulders is an arm (sleeve,
+ * hand, a purse in hand); everything else (torso, skirts, head, hair) is the body.
+ */
+export function limbOf(
+  g: BufferGeometry,
+  b: { tw: number; hipY: number; shoulderY: number },
+): Limb {
+  g.computeBoundingBox();
+  const c = g.boundingBox!.getCenter(new Vector3());
+  const side = c.x < 0 ? 'L' : 'R';
+  if (Math.abs(c.x) > b.tw + 0.005 && c.y > b.hipY - 0.06 && c.y < b.shoulderY + 0.03) {
+    return `arm${side}`;
+  }
+  if (c.y < b.hipY - 0.02 && Math.abs(c.x) > 0.015 && Math.abs(c.x) < b.tw * 1.3) {
+    return `leg${side}`;
+  }
+  return 'body';
+}
+
+/** The avatar's rig: body, legs and arms as separate meshes, and where they turn. */
+export interface AvatarRigParts {
+  meshes: Partial<Record<Limb, Mesh>>;
+  pivots: RigPivots;
+}
+
+const rigCache = new Map<string, AvatarRigParts>();
+
+/** The avatar split into a rig for walking and sitting (cached per look; meshes are copies). */
+export function avatarRig(loadout: AvatarLoadout): AvatarRigParts {
+  const key = avatarKey(loadout);
+  let rig = rigCache.get(key);
+  if (!rig) {
+    const { parts, b } = buildParts(loadout);
+    const groups: Record<Limb, Parts> = { body: [], legL: [], legR: [], armL: [], armR: [] };
+    for (const g of parts) groups[limbOf(g, b)].push(g);
+    const meshes: Partial<Record<Limb, Mesh>> = {};
+    for (const limb of Object.keys(groups) as Limb[]) {
+      if (groups[limb].length === 0) continue;
+      const mesh = sceneryMesh(groups[limb], { outline: 0.013, fade: false, shadows: false });
+      mesh.name = `avatar-${limb}`;
+      meshes[limb] = mesh;
+    }
+    const arm = b.tw + b.armR * 0.6;
+    rig = {
+      meshes,
+      pivots: {
+        legL: [-b.legX, b.hipY, 0],
+        legR: [b.legX, b.hipY, 0],
+        armL: [-arm, b.shoulderY - 0.04, 0],
+        armR: [arm, b.shoulderY - 0.04, 0],
+        hipY: b.hipY,
+      },
+    };
+    rigCache.set(key, rig);
+  }
+  const meshes: Partial<Record<Limb, Mesh>> = {};
+  for (const [limb, mesh] of Object.entries(rig.meshes)) meshes[limb as Limb] = mesh.clone();
+  return { meshes, pivots: rig.pivots };
+}
+
+const cache = new Map<string, Mesh>();
+
+/** The avatar for a loadout (cached per look): one outlined toon mesh. */
+export function avatarMesh(loadout: AvatarLoadout): Mesh {
+  const key = avatarKey(loadout);
+  const hit = cache.get(key);
+  if (hit) return hit.clone();
+  const P = buildParts(loadout).parts;
   const mesh = sceneryMesh(P, { outline: 0.013, fade: false, shadows: false });
   mesh.name = 'avatar';
   cache.set(key, mesh);

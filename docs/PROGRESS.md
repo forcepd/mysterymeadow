@@ -1775,3 +1775,41 @@ With reduced motion, everything stays still and "achoo!" and "z z" stay put.
   - Glasses and shades sit on the eyes and close to the face.
   - Hats sit on top of the head.
 - **Results:** 610 unit tests pass. All 91 3D e2e tests pass on the three browser setups (dress-up, clinic, world, care).
+
+### Avatar walking and sitting (requested, 2026-09-30)
+
+**Walking**
+
+- The avatar is now a rig (`avatar/avatarModel.ts` `avatarRig`): a body, two legs and two arms, each turning at its hip or shoulder. The model builder is unchanged; each finished piece is sorted into the rig by where it is (`limbOf`):
+  - **Legs:** the skin, the trouser leg and the shoe.
+  - **Arms:** the sleeve and the hand (a purse goes with its hand).
+  - **Body:** everything else, including skirts, dresses, hair and accessories.
+- **The walk cycle** (`avatar/pose.ts`):
+  - The legs swing opposite each other, and each arm swings opposite its leg.
+  - The body bobs twice per stride, sways a little and leans into the walk.
+  - The cycle follows the ground actually covered, so the feet don't slide. It eases in and out.
+- **Standing still:** gentle breathing, and the arms drift a little.
+- **With reduced motion:** no swinging.
+- **Portraits** still use the single merged mesh.
+
+**Sitting (new: in the house)**
+
+- **Tapping a seat:** tap the armchair or the sofa and the avatar walks up to it, turns round, backs onto it and sits down, with its legs out in front and hands in its lap. On the sofa it takes the cushion nearer the tap.
+- **Getting up:** the next tap elsewhere gets it up and walking. If its seat is moved, turned or put away in Decorate mode, it stands up.
+- **Where seats are:** they come from the furniture's own cushions (`seatsFor` in `items/itemModels.ts`, matching the chair builder). Outside Decorate mode only seats take taps (`Items.pickables`). A tap on a seat doesn't close the Animal Card, like a tap on furniture in the original.
+- **Purely for flavor**, like the original's walking avatar: the sim and saves are unchanged.
+
+**Tests**
+
+- **Unit:** 622 in total (12 new).
+  - **The rig:** it has all five parts with mirrored pivots, keeps every piece of the avatar (its parts add up to the merged mesh), and puts legs with shoes below the hips and arms at the sides.
+  - **Poses:** the walk has opposite legs and arms, a real stride, and no swing when not walking. The sitting pose and the easing are covered too.
+  - **Seats:** the armchair seats 1 and the sofa 2; nothing else is a seat.
+  - **Sitting:** it walks up, turns and sits on the seat; gets up at the next tap; stands up when the seat moves or goes away; and appears seated right away with reduced motion.
+- **E2E:** a new `world3d-avatar.spec.ts`, 5 tests × 3 browser setups:
+  - Sit on the armchair, and get up when you tap the floor.
+  - The two sofa seats.
+  - Turning the chair in Decorate gets the avatar up.
+  - The avatar walks to a tap with motion on.
+  - Nothing to sit on in the yard.
+- **Full e2e run:** 392 passed, 7 skipped, 0 failed.

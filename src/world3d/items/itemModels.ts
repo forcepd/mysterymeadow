@@ -530,6 +530,30 @@ const MODELS: Record<string, Build> = {
   bed_royal: (P, w, d, s, c) => bed(P, w, d, s, c, true, true),
 };
 
+/** How many people fit on each seating item (DESIGN 12.3 "seating"). */
+const SEATS: Record<string, number> = { armchair: 1, sofa: 2 };
+
+/**
+ * Where someone sits on an item, in the item's own space (front = +z): hips on each cushion,
+ * a little back against the backrest. Empty for anything that isn't a seat. Matches `chair`.
+ */
+export function seatsFor(
+  itemId: string,
+  w: number,
+  d: number,
+  s: number,
+): { x: number; y: number; z: number }[] {
+  const seats = SEATS[itemId] ?? 0;
+  const W = w * 0.9;
+  const D = d * 0.8;
+  const cushion = (W * 0.72) / Math.max(1, seats);
+  return Array.from({ length: seats }, (_, i) => ({
+    x: -W * 0.36 + cushion * (i + 0.5),
+    y: 0.37 * s,
+    z: -D * 0.05,
+  }));
+}
+
 /** Armchair (1 seat) or sofa (2): a seat, a back, two arms, and cushions. */
 function chair(P: Parts, w: number, d: number, s: number, c: string, seats: number) {
   const W = w * 0.9;

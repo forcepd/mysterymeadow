@@ -28,6 +28,7 @@ export default function GameCanvas3D() {
       view: () => world.view(),
       stats: () => world.stats(),
       particles: () => world.particles(),
+      avatar: () => world.avatar(),
       projectPatient: () => world.projectPatient(),
     };
     let taps = 0;

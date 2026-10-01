@@ -4,6 +4,7 @@ import {
   LineBasicMaterial,
   LineSegments,
   Mesh,
+  Vector3,
   type Camera,
   type Object3D,
 } from 'three';
@@ -13,7 +14,8 @@ import type { PlacedItem } from '../../sim/types';
 import { animalMaterials } from '../animals/materials';
 import { BACK_WALL_Z, type ViewZone } from '../coords';
 import { pickKey, type Pickable } from '../pick';
-import { itemModel, roundedRect } from './itemModels';
+import { itemModel, roundedRect, seatsFor } from './itemModels';
+import type { Seat } from '../avatar/AvatarActor';
 import { placeItem } from './placement3d';
 
 interface Placed {
@@ -23,6 +25,9 @@ interface Placed {
   wall: boolean;
   look: string;
   height: number;
+  /** Where someone can sit (item space), and which way the item faces. */
+  seats: { x: number; y: number; z: number }[];
+  yaw: number;
 }
 
 /**
@@ -48,11 +53,32 @@ export class Items {
     this.highlight.visible = false;
   }
 
+  /**
+   * In Decorate mode every placed item can be tapped (to move it). Otherwise only seats can:
+   * tap the armchair or the sofa and the avatar sits on it.
+   */
   *pickables(): Iterable<Pickable> {
-    if (!this.decorating) return;
     for (const [id, p] of this.placed) {
+      if (!this.decorating && p.seats.length === 0) continue;
       yield { kind: 'item', id, zone: p.zone, object: p.root, height: p.wall ? 0 : p.height };
     }
+  }
+
+  /** The seats on a placed item, in the world (empty if it isn't a seat). */
+  seatsOf(id: string): Seat[] {
+    const p = this.placed.get(id);
+    if (!p) return [];
+    p.root.updateMatrixWorld(true);
+    return p.seats.map((local, i) => {
+      const at = p.root.localToWorld(new Vector3(local.x, local.y, local.z));
+      return { key: `${id}:${i}`, x: at.x, y: at.y, z: at.z, yaw: p.yaw };
+    });
+  }
+
+  /** A seat by its key (`placedId:index`), or null if it's gone. */
+  seat(key: string): Seat | null {
+    const i = key.lastIndexOf(':');
+    return this.seatsOf(key.slice(0, i))[Number(key.slice(i + 1))] ?? null;
   }
 
   select(id: string | null): void {
@@ -123,6 +149,8 @@ export class Items {
       wall,
       look,
       height: box?.max.y ?? 0.3,
+      seats: seatsFor(item.itemId, at.w, at.d, at.s),
+      yaw: at.yaw,
     });
   }
 

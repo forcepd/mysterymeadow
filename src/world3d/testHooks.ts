@@ -26,6 +26,15 @@ export interface Meadow3DHooks {
   stats(): { calls: number; triangles: number };
   /** Where the Vet Clinic's patient is on the page (null when it's closed). */
   projectPatient(): ScreenPoint | null;
+  /** The player's avatar in the zone on show: where it is and what it's doing. */
+  avatar(): {
+    zone: 'yard' | 'house';
+    x: number;
+    z: number;
+    walking: boolean;
+    sitting: boolean;
+    seat: string | null;
+  };
   /** Effect particles alive right now. */
   particles(): number;
 }

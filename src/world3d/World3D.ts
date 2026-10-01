@@ -479,7 +479,8 @@ export class World3D {
     // In Decorate mode only placed things (and bowls) take taps, like the original.
     const sources = this.decorate.active
       ? [this.items.pickables(), [...this.care.pickables()].filter((p) => p.kind === 'bowl')]
-      : [this.critters.pickables(), this.care.pickables()];
+      : // (Items list only seats outside Decorate mode: tap one and the avatar sits.)
+        [this.critters.pickables(), this.care.pickables(), this.items.pickables()];
     for (const source of sources) {
       for (const p of source) if (p.zone === this.zone) live.set(pickKey(p.kind, p.id), p);
     }
@@ -499,8 +500,8 @@ export class World3D {
       move: (q) => {
         if (Math.hypot(q.x - start.x, q.y - start.y) > TAP_SLOP * 2) moved = true;
       },
-      up: () => {
-        if (!moved) this.tapObject(target);
+      up: (q) => {
+        if (!moved) this.tapObject(target, q);
       },
       cancel: () => {},
     };
@@ -535,7 +536,11 @@ export class World3D {
     );
   }
 
-  private tapObject(target: Pickable): void {
+  private tapObject(target: Pickable, at: PointerSample): void {
+    if (target.kind === 'item') {
+      this.sitOn(target.id, at);
+      return;
+    }
     if (target.kind === 'visitor') {
       const visitor = this.session.sim.state.world.gateQueue.find((v) => v.id === target.id);
       if (visitor && !visitor.revealed) this.session.sim.revealVisitor(visitor.id);
@@ -553,6 +558,22 @@ export class World3D {
     const ground = this.rig.groundAt(this.ndc(p));
     if (ground) this.fx.ripple(this.zones[this.zone], { x: ground.x, y: 0, z: ground.z });
     appBus.emit('selectAnimal', { id: null });
+  }
+
+  /** The avatar sits on the armchair or sofa: on the cushion nearest the tap. */
+  private sitOn(placedId: string, at: PointerSample): void {
+    const seats = this.items.seatsOf(placedId);
+    if (seats.length === 0) return;
+    const ground = this.rig.groundAt(this.ndc(at));
+    const near = (s: (typeof seats)[number]) =>
+      ground ? Math.hypot(s.x - ground.x, s.z - ground.z) : 0;
+    const seat = seats.reduce((a, b) => (near(b) < near(a) ? b : a));
+    this.avatars[this.zone].sitOn(seat, performance.now(), this.reducedMotion());
+  }
+
+  /** The avatar in the zone on show (for tests). */
+  avatar() {
+    return { zone: this.zone, ...this.avatars[this.zone].state };
   }
 
   /** The glowing ring at the door while an animal is carried: brighter when it's close. */
@@ -618,7 +639,9 @@ export class World3D {
     this.care.update(ctx);
     this.items.update(this.rig.camera);
     this.vet.update(ctx);
-    for (const zone of ['yard', 'house'] as ViewZone[]) this.avatars[zone].update(ctx);
+    for (const zone of ['yard', 'house'] as ViewZone[]) {
+      this.avatars[zone].update(ctx, (key) => this.items.seat(key));
+    }
     this.decorate.update();
     this.fx.update(now);
     if (this.doorRing.visible) {
