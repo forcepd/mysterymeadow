@@ -1,5 +1,5 @@
 import { zoneToWorld } from '../../src/game/layout';
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures2d';
 import {
   animalTapPoint,
   buildSave,

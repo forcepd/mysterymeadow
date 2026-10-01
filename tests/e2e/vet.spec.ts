@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './fixtures2d';
 import { EXAM_TOOLS, ILLNESSES, getTreatment } from '../../src/config/illnesses';
 import { VET_LAYOUT, WORLD_WIDTH, vetToolPoint } from '../../src/game/layout';
 import type { Sickness } from '../../src/sim/types';

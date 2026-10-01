@@ -14,6 +14,7 @@ import { PinSetup } from './root/PinSetup';
 import styles from './Screens.module.css';
 import s from './SettingsScreen.module.css';
 import { useSim } from './session';
+import { setWorldStyle, useWorldStyle } from './worldStyle';
 import { useAppEvent } from './useAppEvent';
 
 type View = 'settings' | 'pin' | 'parent';
@@ -23,6 +24,7 @@ type View = 'settings' | 'pin' | 'parent';
  * gems, recent activity, game settings, players, backups, and the PIN.
  */
 export function SettingsScreen() {
+  const worldStyle = useWorldStyle();
   const { sim } = useSim();
   const device = useDevice();
   const [open, setOpen] = useState(false);
@@ -71,6 +73,11 @@ export function SettingsScreen() {
               label="🐢 Less motion (calmer animations)"
               checked={settings.reducedMotion}
               onChange={(v) => sim.updateSettings({ reducedMotion: v })}
+            />
+            <Toggle
+              label="🖼️ Classic 2D world (the original look)"
+              checked={worldStyle === '2d'}
+              onChange={(v) => setWorldStyle(v ? '2d' : '3d')}
             />
             <div className={s.buttons}>
               <button

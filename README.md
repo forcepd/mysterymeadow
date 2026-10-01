@@ -1,6 +1,10 @@
 # Mystery Meadow
 
-A cozy, cartoon pet-collecting browser game for kids. The spec is in [`docs/DESIGN.md`](docs/DESIGN.md) and build status is in [`docs/PROGRESS.md`](docs/PROGRESS.md).
+A cozy, cartoon pet-collecting browser game for kids, in 3D (Three.js). The spec is in [`docs/DESIGN.md`](docs/DESIGN.md), the 3D decisions are in [`docs/DESIGN-3D.md`](docs/DESIGN-3D.md), and build status is in [`docs/PROGRESS.md`](docs/PROGRESS.md).
+
+## The two worlds
+
+The game opens in the **3D world**. The original's **classic 2D world** (Phaser) is still in, for fun: turn on **Settings → 🖼️ Classic 2D world**, which this device remembers, or open the game with `?2d`. (`?3d` forces 3D.) Both worlds play the same game from the same save; only the picture changes. Each world is its own lazy-loaded chunk, so a device only downloads the one it shows.
 
 ## Develop
 
@@ -11,7 +15,8 @@ npm install
 npx playwright install chromium webkit   # once, for e2e tests
 npm run dev          # local dev server
 npm test             # unit tests (Vitest)
-npm run e2e          # smoke tests on desktop Chromium + iPad WebKit (builds first)
+npm run e2e          # e2e tests on desktop Chromium + iPad WebKit (builds first)
+npm run perf         # frame-rate probe of a busy yard in both worlds (add --headed for a real GPU)
 npm run build        # typecheck + production build into dist/
 npm run lint         # ESLint
 npm run format       # Prettier

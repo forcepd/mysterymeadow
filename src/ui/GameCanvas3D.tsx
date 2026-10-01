@@ -24,6 +24,7 @@ export default function GameCanvas3D() {
     setPortraitProviders(portraits);
     window.meadow3d = {
       projectObject: (kind, id) => world.projectObject(kind, id),
+      pickableIds: (kind) => world.pickableIds(kind),
       projectWorld: (p, height) => world.projectWorld(p, height),
       view: () => world.view(),
       stats: () => world.stats(),

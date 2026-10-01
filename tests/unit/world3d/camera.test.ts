@@ -8,7 +8,7 @@ import {
   worldToGround,
   type ViewZone,
 } from '../../../src/world3d/coords';
-import { is3DEnabled } from '../../../src/world3d/flag';
+import { chooseWorld } from '../../../src/ui/worldStyle';
 
 const ASPECTS = {
   'iPad 4:3': 4 / 3,
@@ -185,13 +185,20 @@ describe('CameraRig controls', () => {
   });
 });
 
-describe('3D flag', () => {
-  it('is on with ?3d, off otherwise', () => {
-    expect(is3DEnabled('?3d')).toBe(true);
-    expect(is3DEnabled('?3d=1')).toBe(true);
-    expect(is3DEnabled('?x=1&3d')).toBe(true);
-    expect(is3DEnabled('')).toBe(false);
-    expect(is3DEnabled('?3d=0')).toBe(false);
-    expect(is3DEnabled('?3d=false')).toBe(false);
+describe('choosing the world', () => {
+  it('is 3D by default, the classic 2D world with ?2d or when chosen in Settings', () => {
+    expect(chooseWorld('', null)).toBe('3d');
+    expect(chooseWorld('?2d', null)).toBe('2d');
+    expect(chooseWorld('?x=1&2d', null)).toBe('2d');
+    expect(chooseWorld('', '2d')).toBe('2d');
+    expect(chooseWorld('', '3d')).toBe('3d');
+    expect(chooseWorld('', 'nonsense')).toBe('3d');
+  });
+
+  it('lets the address win over the saved choice', () => {
+    expect(chooseWorld('?3d', '2d')).toBe('3d');
+    expect(chooseWorld('?2d', '3d')).toBe('2d');
+    expect(chooseWorld('?2d=0', '2d')).toBe('2d');
+    expect(chooseWorld('?2d=false', null)).toBe('3d');
   });
 });

@@ -3,7 +3,7 @@ import type { PickKind } from '../../src/world3d/pick';
 import type {} from '../../src/world3d/testHooks';
 import { press } from './helpers';
 
-/** Helpers for the 3D world (`?3d`), where the camera can move: find things by projecting. */
+/** Helpers for the 3D world, where the camera can move: find things by projecting. */
 
 export const canvas = (page: Page) => page.locator('[data-testid="game-canvas"] canvas');
 

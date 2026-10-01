@@ -6,7 +6,7 @@ import { wallStripToWall } from '../../src/world3d/coords';
 import { buildSave, canvasReady, press, seedSave, testAnimal } from './helpers';
 import { tapAt, view, whereIs, whereWorld } from './helpers3d';
 
-/** Phase 3D-4: the 3D room and Decorate mode (`?3d`), the original's decorate flows. */
+/** Phase 3D-4: the 3D room and Decorate mode, the original's decorate flows. */
 
 test.beforeEach(async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -37,7 +37,7 @@ async function start(page: Page, edit: (s: SimState, now: number) => void = () =
       edit(s, now);
     }),
   );
-  await page.goto('./?3d');
+  await page.goto('./');
   await canvasReady(page);
 }
 

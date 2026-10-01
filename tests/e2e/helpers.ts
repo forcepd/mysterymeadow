@@ -184,3 +184,41 @@ export async function openGame(page: Page) {
   await page.goto('./');
   await canvasReady(page);
 }
+
+/**
+ * DESIGN 17.5 / 18.5: every control on screen is at least 48x48 and has a name a screen reader
+ * can read. Checkboxes count their whole label as the target.
+ */
+export async function audit(page: Page, where: string) {
+  await page.waitForTimeout(250); // Let the screen settle.
+  const problems = await page.evaluate(() => {
+    const out: string[] = [];
+    const controls = document.querySelectorAll<HTMLElement>(
+      'button, a[href], input:not([type="hidden"]), select, [role="button"]',
+    );
+    for (const el of controls) {
+      const r0 = el.getBoundingClientRect();
+      if (r0.width === 0 || r0.height === 0) continue;
+      const input = el as HTMLInputElement;
+      const label = el.closest('label');
+      const target = (input.type === 'checkbox' || input.type === 'radio') && label ? label : el;
+      const r = target.getBoundingClientRect();
+      const labelledBy = el.getAttribute('aria-labelledby');
+      const name = (
+        el.getAttribute('aria-label') ||
+        (labelledBy && document.getElementById(labelledBy)?.textContent) ||
+        label?.textContent ||
+        (el instanceof HTMLInputElement && el.labels?.[0]?.textContent) ||
+        el.textContent ||
+        el.getAttribute('title') ||
+        ''
+      ).trim();
+      const what = `${el.tagName.toLowerCase()} "${name || '?'}"`;
+      if (r.width < 47.5 || r.height < 47.5)
+        out.push(`${what} is ${Math.round(r.width)}x${Math.round(r.height)}`);
+      if (!name) out.push(`${what} has no name`);
+    }
+    return out;
+  });
+  expect(problems, where).toEqual([]);
+}

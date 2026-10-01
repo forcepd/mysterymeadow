@@ -37,6 +37,7 @@ import { Decorate } from './decorate/Decorate';
 import { animalMaterials } from './animals/materials';
 import { AvatarActor } from './avatar/AvatarActor';
 import { VetRoom } from './vet/VetRoom';
+import { QualityGovernor } from './quality';
 import { HOUSE_DOOR, INSIDE_DOOR } from '../game/layout';
 import { sceneryFade } from './art/toon';
 import { Yard } from './yard/Yard';
@@ -79,6 +80,8 @@ export class World3D {
   private readonly avatars: Record<ViewZone, AvatarActor>;
   /** The Vet Clinic (DESIGN 9.5): its own room and fixed camera while it's open. */
   private readonly vet: VetRoom;
+  /** Lowers the drawing resolution if frames run slow (older iPads), and raises it back. */
+  private readonly quality = new QualityGovernor(window.devicePixelRatio || 1);
   private readonly fx: Effects3D;
   /** Flying coins (DOM), over the canvas. */
   private readonly overlay = document.createElement('div');
@@ -232,6 +235,14 @@ export class World3D {
     return p ? this.toPage(this.anchorOf(p, 0.5)) : null;
   }
 
+  /** The ids of everything of one kind that can be tapped right now. */
+  pickableIds(kind: PickKind): string[] {
+    const prefix = pickKey(kind, '');
+    return [...this.live().keys()]
+      .filter((k) => k.startsWith(prefix))
+      .map((k) => k.slice(prefix.length));
+  }
+
   /** Where the Vet Clinic's patient is on the page (null when the clinic is closed). */
   projectPatient(): ScreenPoint | null {
     const p = this.vet.patientMiddle();
@@ -255,9 +266,9 @@ export class World3D {
     };
   }
 
-  stats(): { calls: number; triangles: number } {
+  stats(): { calls: number; triangles: number; pixelRatio: number } {
     const { calls, triangles } = this.renderer.info.render;
-    return { calls, triangles };
+    return { calls, triangles, pixelRatio: this.renderer.getPixelRatio() };
   }
 
   destroy(): void {
@@ -630,6 +641,8 @@ export class World3D {
     const { target } = this.rig.view;
     sceneryFade.value =
       this.rig.camera.position.distanceTo(new Vector3(target.x, 0, target.z)) * NEAR_FADE;
+    const ratio = this.quality.frame(now - this.lastFrame);
+    if (ratio !== null) this.renderer.setPixelRatio(Math.min(ratio, MAX_PIXEL_RATIO));
     const dt = Math.min(0.1, (now - this.lastFrame) / 1000);
     this.lastFrame = now;
     this.yard.sync(this.session.sim.state.world);

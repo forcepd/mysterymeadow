@@ -20,10 +20,12 @@ export interface ViewInfo {
  */
 export interface Meadow3DHooks {
   projectObject(kind: PickKind, id: string): ScreenPoint | null;
+  /** The ids of everything of one kind that can be tapped right now. */
+  pickableIds(kind: PickKind): string[];
   projectWorld(p: Vec2, height?: number): ScreenPoint | null;
   view(): ViewInfo;
   /** What the last frame drew (draw calls and triangles), for the performance budget. */
-  stats(): { calls: number; triangles: number };
+  stats(): { calls: number; triangles: number; pixelRatio: number };
   /** Where the Vet Clinic's patient is on the page (null when it's closed). */
   projectPatient(): ScreenPoint | null;
   /** The player's avatar in the zone on show: where it is and what it's doing. */

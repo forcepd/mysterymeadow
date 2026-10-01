@@ -3,7 +3,7 @@ import type { Sickness } from '../../src/sim/types';
 import { buildSave, canvasReady, press, seedSave, testAnimal } from './helpers';
 import { tapAt, whereIs } from './helpers3d';
 
-/** Phase 3D-5: the Vet Clinic in 3D (`?3d`), the original's vet flows. */
+/** Phase 3D-5: the Vet Clinic in 3D, the original's vet flows. */
 
 test.beforeEach(async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -20,7 +20,7 @@ async function startWithSickBunny(page: Page, coins: number, sickness: Partial<S
       );
     }),
   );
-  await page.goto('./?3d');
+  await page.goto('./');
   await canvasReady(page);
 }
 

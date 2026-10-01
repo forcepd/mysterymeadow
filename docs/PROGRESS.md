@@ -1823,3 +1823,61 @@ With reduced motion, everything stays still and "achoo!" and "z z" stay put.
   - Flying coins now pass under the HUD's coin counter as they arrive.
 - **New e2e test:** a row of named animals behind the card. Every label under the card is drawn below it. The test briefly lets labels take the pointer, so the browser reports what's really on top. It failed before the fix (Back1's label was on top) and passes now on all three browser setups.
 - **Results:** all 133 3D e2e tests pass.
+
+## Phase 3D-6: 3D by default, with the classic 2D world kept for fun (built 2026-09-30)
+
+### What was built
+
+**3D is the default world**
+
+- The game now opens in 3D. The `?3d` dev flag (`world3d/flag.ts`) is gone.
+- **The classic 2D world stays, as a switch:**
+  - **Settings → "🖼️ Classic 2D world (the original look)":** switches worlds right away, mid-game, from the same save. This device remembers the choice.
+  - **`?2d` in the URL** opens the 2D world for that visit (`?3d` forces 3D).
+- **How it's chosen (`src/ui/worldStyle.ts`):** URL first, then the device's saved choice (`localStorage` key `mystery-meadow-3d:world`), else 3D. It's a device preference, not part of the save, so saves are unchanged and need no migration.
+- **Lazy loading:** `GameCanvas` now just picks a world. The Phaser host moved to `GameCanvas2D.tsx`. Both worlds are lazy chunks, so a device only downloads the world it shows:
+  - **3D:** about 200 KB gzipped.
+  - **2D:** Phaser at about 357 KB gzipped, plus 15 KB.
+  - **Offline:** the service worker still precaches both, so either works offline.
+- **Menus:** they show 3D portraits while the 3D world is up, and the original's SVG pictures in 2D.
+
+**iPad performance**
+
+- **A frame-rate governor (`world3d/quality.ts`):** when frames stay slow, it lowers the drawing resolution step by step (pixel ratio 2 → 1.5 → 1.25 → 1), and raises it again once they're fast. Long pauses, like a backgrounded tab, are ignored.
+- **The perf probe** (`npm run perf`) now measures a busy yard in both worlds. In 3D it also logs draw calls, triangles and the pixel ratio. Its busy yard has 24 animals (some in outfits or Sparkle), 3 gate visitors and 6 poops.
+
+| Setup                                   | 3D                 | 2D      | 3D scene                                      |
+| --------------------------------------- | ------------------ | ------- | --------------------------------------------- |
+| iPad and iPad Pro (WebKit)              | 60 fps             | 60 fps  | 164 draw calls, 344k triangles, pixel ratio 2 |
+| Desktop Chromium, real GPU (`--headed`) | 118 fps (p95 9 ms) | 120 fps | —                                             |
+| Headless Chromium (software GPU)        | about 9 fps        | 60 fps  | —                                             |
+
+- The headless 3D number only reflects the software GPU, so the probe logs it instead of checking it.
+
+### Tests
+
+- **Unit:** 628 in total.
+  - The governor: it starts as sharp as the screen allows (up to 2×), stays there while frames are smooth, steps down one step at a time when slow (settling in between), steps back up when fast, and ignores long gaps and bad numbers.
+  - World choice: the URL beats the saved choice, which beats the default.
+- **E2E:**
+  - **The original specs** (care, early game, foundation, house, pets, polish, profiles, real estate, tricks, vet, yard, perf) still test the classic 2D world. A fixture (`tests/e2e/fixtures2d.ts`) sets this device's choice to 2D before each page loads.
+  - **The 3D specs** now open the default URL. The renderer test checks that 3D is the default and Phaser isn't downloaded, and that `?2d` shows the classic world without downloading Three.js.
+  - **New `world3d-flows.spec.ts`** (6 tests × 3 browser setups):
+    - First launch → PIN → onboarding → tutorial (visitor, bowl, poop, card) → first sale, all in 3D.
+    - Keeping a pet, and seeing it on the Pets screen.
+    - A kept pet performing a trick, and the Training screen.
+    - Touch targets ≥48 px with names, including the reset-view button and the Animal Card.
+    - No requests to other origins.
+    - The Settings switch to 2D and back: it changes the world live, is remembered after a reload, and the game carries on.
+  - **New test hook:** `meadow3d.pickableIds(kind)` lists what can be tapped, so tests can find visitors and poops before the autosave has them.
+  - **Shared helper:** the a11y `audit` moved from `polish.spec.ts` into `helpers.ts`, so both worlds use it.
+- **Full e2e run:** 413 passed, 10 skipped (the opt-in perf probe and the device-specific skips), 0 failed.
+
+### Deviations from the plan
+
+- **The plan said to remove Phaser and the SVG renderers.** They're kept instead, as the "Classic 2D world" switch (as asked). DESIGN-3D.md is updated.
+
+### Known issues
+
+- In 3D, an iPad can draw at a lower resolution for a few seconds after a slow moment (the governor steps back up after 6 fast seconds).
+- The PWA's offline precache includes both worlds (2.7 MB in all), even though a device only uses one.

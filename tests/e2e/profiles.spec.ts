@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './fixtures2d';
 import { numberInWords } from '../../src/profile/pin';
 import type { DeviceRecord } from '../../src/save/device';
 import type { SaveFile } from '../../src/save/schema';

@@ -25,4 +25,4 @@ Every art, audio, and font asset shipped in the game is listed here with its sou
 
 ## Code libraries (runtime)
 
-Phaser (MIT), React and React DOM (MIT), Workbox (MIT, via vite-plugin-pwa).
+three.js (MIT, for the 3D world, including its CSS2DRenderer addon), Phaser (MIT, for the classic 2D world), React and React DOM (MIT), Workbox (MIT, via vite-plugin-pwa).

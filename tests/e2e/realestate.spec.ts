@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './fixtures2d';
 import type { SimState } from '../../src/sim/types';
 import {
   animalTapPoint,

@@ -1,6 +1,7 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test } from './fixtures2d';
 import {
   animalTapPoint,
+  audit,
   buildSave,
   canvasReady,
   gateTapPoint,
@@ -122,44 +123,6 @@ test.describe('while you were away (DESIGN 14)', () => {
     await expect(page.getByRole('dialog', { name: /while you were away/i })).toHaveCount(0);
   });
 });
-
-/**
- * DESIGN 17.5 / 18.5: every control on screen is at least 48x48 and has a name a screen reader
- * can read. Checkboxes count their whole label as the target.
- */
-async function audit(page: Page, where: string) {
-  await page.waitForTimeout(250); // Let the screen settle.
-  const problems = await page.evaluate(() => {
-    const out: string[] = [];
-    const controls = document.querySelectorAll<HTMLElement>(
-      'button, a[href], input:not([type="hidden"]), select, [role="button"]',
-    );
-    for (const el of controls) {
-      const r0 = el.getBoundingClientRect();
-      if (r0.width === 0 || r0.height === 0) continue;
-      const input = el as HTMLInputElement;
-      const label = el.closest('label');
-      const target = (input.type === 'checkbox' || input.type === 'radio') && label ? label : el;
-      const r = target.getBoundingClientRect();
-      const labelledBy = el.getAttribute('aria-labelledby');
-      const name = (
-        el.getAttribute('aria-label') ||
-        (labelledBy && document.getElementById(labelledBy)?.textContent) ||
-        label?.textContent ||
-        (el instanceof HTMLInputElement && el.labels?.[0]?.textContent) ||
-        el.textContent ||
-        el.getAttribute('title') ||
-        ''
-      ).trim();
-      const what = `${el.tagName.toLowerCase()} "${name || '?'}"`;
-      if (r.width < 47.5 || r.height < 47.5)
-        out.push(`${what} is ${Math.round(r.width)}x${Math.round(r.height)}`);
-      if (!name) out.push(`${what} has no name`);
-    }
-    return out;
-  });
-  expect(problems, where).toEqual([]);
-}
 
 test.describe('accessibility pass (DESIGN 17.5)', () => {
   test('main screens: big enough targets, every control named', async ({ page }) => {

@@ -3,7 +3,7 @@ import { SPECIES } from '../../src/config/species';
 import { buildSave, canvasReady, press, seedSave, testAnimal, testVisitor } from './helpers';
 import { drag, emptyGround, tapAt, view, whereIs } from './helpers3d';
 
-/** Phase 3D-0: the Three.js world behind `?3d`, its camera, and tapping things in it. */
+/** Phase 3D-0: the Three.js world (the default world), its camera, and tapping things in it. */
 
 test.beforeEach(async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -20,12 +20,12 @@ async function open3D(page: Page) {
       s.world.gateQueue.push(testVisitor(now));
     }),
   );
-  await page.goto('./?3d');
+  await page.goto('./');
   await canvasReady(page);
 }
 
-test.describe('3D world (?3d)', () => {
-  test('is used with ?3d; the original world is used (and Three.js not loaded) without', async ({
+test.describe('3D world (the default)', () => {
+  test('is the default (Phaser not loaded); ?2d shows the classic world (Three.js not loaded)', async ({
     page,
   }) => {
     const scripts: string[] = [];
@@ -38,13 +38,15 @@ test.describe('3D world (?3d)', () => {
     );
     await page.goto('./');
     await canvasReady(page);
-    await expect(page.getByTestId('game-canvas')).not.toHaveAttribute('data-renderer', '3d');
-    expect(scripts.some((u) => u.includes('GameCanvas3D'))).toBe(false);
-
-    await page.goto('./?3d');
-    await canvasReady(page);
     await expect(page.getByTestId('game-canvas')).toHaveAttribute('data-renderer', '3d');
     await expect(page.getByTestId('reset-view')).toBeHidden();
+    expect(scripts.some((u) => /GameCanvas2D|phaser/.test(u))).toBe(false);
+
+    scripts.length = 0;
+    await page.goto('./?2d');
+    await canvasReady(page);
+    await expect(page.getByTestId('game-canvas')).not.toHaveAttribute('data-renderer', '3d');
+    expect(scripts.some((u) => u.includes('GameCanvas3D'))).toBe(false);
   });
 
   test('tapping an animal opens its card; tapping empty ground closes it', async ({ page }) => {
@@ -140,7 +142,7 @@ test.describe('3D world (?3d)', () => {
         s.world.animals.push(testAnimal(now, { id: 'a1', position: { x: 0.08, y: 0 } }));
       }),
     );
-    await page.goto('./?3d');
+    await page.goto('./');
     await canvasReady(page);
     const card = page.getByRole('complementary', { name: /bunny card/i });
     await tapAt(page, await whereIs(page, 'animal', 'a1'));
@@ -166,7 +168,7 @@ test.describe('3D world (?3d)', () => {
         }
       }),
     );
-    await page.goto('./?3d');
+    await page.goto('./');
     await canvasReady(page);
     const stats = await page.evaluate(() => window.meadow3d!.stats());
     expect(stats.calls).toBeLessThan(150);
@@ -193,7 +195,7 @@ test.describe('3D world (?3d)', () => {
         });
       }),
     );
-    await page.goto('./?3d');
+    await page.goto('./');
     await canvasReady(page);
     const world = page.getByTestId('game-canvas');
     for (const [i, sp] of SPECIES.entries()) {
@@ -210,7 +212,7 @@ test.describe('3D world (?3d)', () => {
         s.world.animals.push(testAnimal(now, { id: 'a1', name: 'Biscuit' }));
       }),
     );
-    await page.goto('./?3d');
+    await page.goto('./');
     await canvasReady(page);
     const world = page.getByTestId('game-canvas');
     const name = world.getByText('Biscuit', { exact: true });
@@ -235,7 +237,7 @@ test.describe('3D world (?3d)', () => {
         s.world.gateQueue.push(testVisitor(now));
       }),
     );
-    await page.goto('./?3d');
+    await page.goto('./');
     await canvasReady(page);
     const world = page.getByTestId('game-canvas');
     await expect(world.getByText('?', { exact: true })).toBeVisible();
@@ -251,7 +253,7 @@ test.describe('3D world (?3d)', () => {
       page,
       buildSave((s, now) => s.world.animals.push(testAnimal(now, { id: 'a1' }))),
     );
-    await page.goto('./?3d');
+    await page.goto('./');
     await canvasReady(page);
     await tapAt(page, await whereIs(page, 'animal', 'a1'));
     const card = page.getByRole('complementary', { name: /bunny card/i });
@@ -280,7 +282,7 @@ test.describe('3D world (?3d)', () => {
         }
       }),
     );
-    await page.goto('./?3d');
+    await page.goto('./');
     await canvasReady(page);
     await tapAt(page, await whereIs(page, 'animal', 'front'));
     const card = page.getByRole('complementary', { name: /bunny card/i });

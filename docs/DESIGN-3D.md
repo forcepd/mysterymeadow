@@ -9,7 +9,7 @@ addendum overrides only the parts of DESIGN.md that talk about 2D rendering (Sec
 
 | Topic     | Decision                                                                                                                                                                                                                                         |
 | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Rendering | Three.js (WebGL) replaces Phaser. React UI, sim, saves, config, and audio are reused as-is.                                                                                                                                                      |
+| Rendering | Three.js (WebGL) is the default world. React UI, sim, saves, config, and audio are reused as-is. Phaser is kept as a "Classic 2D world" switch (Settings, or `?2d`), decided in 3D-6.                                                            |
 | Art       | **Built in code**: chunky, rounded, toy-like 3D animals and props from primitives, soft toon shading. Species are parametric part templates (body, head, ears, tail, pattern, eyes) with color slots, so variants, Sparkle and outfits are data. |
 | Camera    | **Free rotate**, within limits (see below).                                                                                                                                                                                                      |
 | Saves     | **Completely separate** from the original. IndexedDB database `mystery-meadow-3d` (the original uses `mystery-meadow`; both can share an origin on pforce.com). No automatic import.                                                             |
@@ -49,7 +49,8 @@ species, particle cap kept from `fx/budget.ts`, and WebGL context-loss recovery.
 ## Build plan (each phase ends with a playable build and passing tests)
 
 Phaser stays in the build until the 3D yard reaches parity, so the game stays playable. The 3D
-renderer sits behind a dev flag (`?3d`) until then.
+renderer sits behind a dev flag (`?3d`) until then. (From 3D-6, 3D is the default and the 2D
+world stays as a switch.)
 
 1. **3D-0 Foundation:** Three.js host replacing `GameCanvas`'s Phaser game, renderer/resize/DPR,
    camera rig (orbit, tap vs drag, pinch, reset), raycast picking, world→screen projection (for
@@ -65,5 +66,22 @@ renderer sits behind a dev flag (`?3d`) until then.
    placement and dragging in Decorate mode.
 6. **3D-5 Vet, avatar, outfits:** Vet scene, 3D player avatar, pet outfits fitted to 3D bodies,
    3D portraits for Animal Card / Dex / Pets / Avatar screens.
-7. **3D-6 Polish:** iPad performance pass, e2e suite moved to projection-based helpers, Phaser and
-   the SVG renderers removed, PROGRESS and CREDITS updated.
+7. **3D-6 Polish:** iPad performance pass, 3D made the default, e2e flows played in 3D with
+   projection-based helpers, PROGRESS and CREDITS updated. **Changed:** Phaser and the SVG
+   renderers are kept, as the "Classic 2D world" switch (each world is its own lazy chunk).
+
+## World choice (3D-6)
+
+- `src/ui/worldStyle.ts` picks the world: `?2d` / `?3d` in the URL first, then this device's
+  saved choice (`localStorage` key `mystery-meadow-3d:world`), else 3D. It's a device preference,
+  not part of the save, so it needs no migration and both worlds play the same save.
+- The Settings toggle switches worlds live: `GameCanvas` swaps `GameCanvas3D` and `GameCanvas2D`
+  (both `React.lazy`), and the new world starts from the running sim.
+- Menus show 3D portraits only while the 3D world is up; the 2D world uses the original's SVGs.
+
+## Frame-rate governor (3D-6)
+
+`world3d/quality.ts` watches frame times and steps the drawing resolution (device pixel ratio)
+down through 2 → 1.5 → 1.25 → 1 when frames stay slow (over 22 ms for 2 s), and back up when
+they stay fast (under 14 ms for 6 s), waiting 2.5 s after each change. Very long frames (over
+250 ms, e.g. the tab was in the background) are ignored.

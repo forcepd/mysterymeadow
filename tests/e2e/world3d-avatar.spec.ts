@@ -4,7 +4,7 @@ import type { PlacedItem, SimState } from '../../src/sim/types';
 import { buildSave, canvasReady, press, seedSave } from './helpers';
 import { tapAt, whereIs, whereWorld } from './helpers3d';
 
-/** The avatar walks (legs and arms swinging) and sits on the armchair and sofa (`?3d`). */
+/** The avatar walks (legs and arms swinging) and sits on the armchair and sofa. */
 
 const HOUSE_GRID = { cols: 8, rows: 6 };
 const menu = (page: Page) => page.getByRole('navigation', { name: 'Menu' });
@@ -24,7 +24,7 @@ async function start(page: Page, edit: (s: SimState) => void = () => {}) {
       edit(s);
     }),
   );
-  await page.goto('./?3d');
+  await page.goto('./');
   await canvasReady(page);
   await press(page, menu(page).getByRole('button', { name: /house/i }));
   await expect(page.getByTestId('game-canvas')).toHaveAttribute('data-scene', 'house');

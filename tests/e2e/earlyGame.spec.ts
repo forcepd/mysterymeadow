@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures2d';
 import { BALANCE } from '../../src/config/balance';
 import { yardToWorld } from '../../src/game/layout';
 import { buildSave, canvasReady, press, seedSave, tapWorld } from './helpers';

@@ -4,7 +4,7 @@ import type { SimState } from '../../src/sim/types';
 import { buildSave, canvasReady, press, seedSave, testAnimal } from './helpers';
 import { tapAt, whereIs } from './helpers3d';
 
-/** Phase 3D-5: pet outfits, the 3D avatar, and 3D portraits in the menus (`?3d`). */
+/** Phase 3D-5: pet outfits, the 3D avatar, and 3D portraits in the menus. */
 
 test.beforeEach(async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -27,8 +27,8 @@ const portraitSrc = (card: ReturnType<Page['getByRole']>) =>
   card.locator('img').first().getAttribute('src');
 
 test.describe('3D dress-up and portraits', () => {
-  test('menus show 3D portraits with ?3d, and the original pictures without', async ({ page }) => {
-    await start(page, './?3d', (s, now) => s.world.animals.push(testAnimal(now, { id: 'a1' })));
+  test('menus show 3D portraits in 3D, and the original pictures with ?2d', async ({ page }) => {
+    await start(page, './', (s, now) => s.world.animals.push(testAnimal(now, { id: 'a1' })));
     await tapAt(page, await whereIs(page, 'animal', 'a1'));
     const card = page.getByRole('complementary', { name: /bunny card/i });
     await expect(card).toBeVisible();
@@ -37,7 +37,7 @@ test.describe('3D dress-up and portraits', () => {
     const me = page.getByRole('button', { name: /my style/i }).locator('img');
     expect(await me.getAttribute('src')).toMatch(/^data:image\/png/);
 
-    await page.goto('./');
+    await page.goto('./?2d');
     await canvasReady(page);
     const me2 = page.getByRole('button', { name: /my style/i }).locator('img');
     expect(await me2.getAttribute('src')).toMatch(/^data:image\/svg/);
@@ -46,7 +46,7 @@ test.describe('3D dress-up and portraits', () => {
   test('dress a pet in the wardrobe: its portrait changes to show the outfit', async ({ page }) => {
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(e.message));
-    await start(page, './?3d', (s, now) => {
+    await start(page, './', (s, now) => {
       s.world.animals.push(testAnimal(now, { id: 'a1' }));
       s.world.inventory = { party_hat: 1 };
     });
@@ -76,7 +76,7 @@ test.describe('3D dress-up and portraits', () => {
       { head: 'big_bow', body: 'pet_tutu', face: 'round_specs' },
       { head: 'flower_clip', body: 'warm_scarf', face: 'round_specs' },
     ];
-    await start(page, './?3d', (s, now) =>
+    await start(page, './', (s, now) =>
       SPECIES.forEach((sp, i) =>
         s.world.animals.push(
           testAnimal(now, {
@@ -96,7 +96,7 @@ test.describe('3D dress-up and portraits', () => {
   });
 
   test('the Dex shows 3D shapes for animals not found yet', async ({ page }) => {
-    await start(page, './?3d', () => {});
+    await start(page, './', () => {});
     await press(page, page.getByRole('button', { name: /dex/i }));
     const dex = page.getByRole('dialog', { name: /dex/i });
     await expect(dex).toBeVisible();

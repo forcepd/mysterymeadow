@@ -2,6 +2,8 @@
 
 This is the 3D (Three.js) remake of Mystery Meadow. The original 2D game lives in `../AnimalLover` and must never be modified from here.
 
+The 3D world (`src/world3d/`, hosted by `src/ui/GameCanvas3D.tsx`) is the default. The original's Phaser world (`src/game/`, `src/ui/GameCanvas2D.tsx`) is kept as the "Classic 2D world" switch (Settings, or `?2d`; see `src/ui/worldStyle.ts`). Both are lazy-loaded; neither may import the other. Gameplay changes go in the sim and work in both worlds. E2E: `world3d*.spec.ts` test the 3D world; the original specs run against the 2D world through `tests/e2e/fixtures2d.ts`.
+
 ## Source of truth
 - `docs/DESIGN-3D.md` holds the 3D decisions and build plan; it overrides DESIGN.md's 2D rendering sections. Gameplay must stay identical to the original.
 - `docs/DESIGN.md` is the game and technical spec. Read the sections relevant to the current phase before planning.

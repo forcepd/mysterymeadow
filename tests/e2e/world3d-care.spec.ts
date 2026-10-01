@@ -4,7 +4,7 @@ import type { PlacedItem, SimState } from '../../src/sim/types';
 import { buildSave, canvasReady, press, seedSave, testAnimal, testVisitor } from './helpers';
 import { drag, holdAt, tapAt, whereIs, whereWorld } from './helpers3d';
 
-/** Phase 3D-3: care and effects in the 3D world (`?3d`). */
+/** Phase 3D-3: care and effects in the 3D world. */
 
 test.beforeEach(async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -31,7 +31,7 @@ async function start(page: Page, edit: (s: SimState, now: number) => void = () =
       edit(s, now);
     }),
   );
-  await page.goto('./?3d');
+  await page.goto('./');
   await canvasReady(page);
 }
 
