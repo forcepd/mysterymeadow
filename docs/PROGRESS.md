@@ -1927,3 +1927,14 @@ With reduced motion, everything stays still and "achoo!" and "z z" stay put.
 ### Known issues
 
 - The busy-yard triangle budget in `world3d-dress.spec.ts` now has only about 70 triangles to spare on October 1.
+
+### First deploy (2026-10-01)
+
+- **Live at https://pforce.com/mysterymeadow/** (GitHub Pages for `forcepd/mysterymeadow`, turned on with "GitHub Actions" as the source). The original game stays at pforce.com/mystery-meadow/, and the two keep separate saves.
+- **The first CI run failed.** On GitHub's runners (no GPU), 5 of the 3D e2e tests failed even on retry, and 3 more were flaky. They all pass locally. The failures:
+  - `world3d-care` 41, 88 and 189 (desktop Chromium)
+  - `world3d` 134 (both setups) and 268 (iPad)
+  - `world3d-dress` 46 (iPad)
+  - `world3d-flows` 71 (iPad)
+- **Workaround:** a manual run of the "CI and deploy" workflow on `main` can tick `skip_e2e`. Lint, format, unit tests and the build still run; e2e is skipped. This deploy went out that way (as asked) so the birthday surprise would be live on October 1.
+- **To do:** make those 3D tap tests reliable on CI. Until then, every push to `main` fails CI and doesn't deploy.
