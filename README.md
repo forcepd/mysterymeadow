@@ -27,7 +27,7 @@ To try it on an iPad on the same Wi-Fi: `npm run build && npx vite preview --hos
 
 ## Deploy
 
-`.github/workflows/ci.yml` runs lint, format check, unit tests, build, and e2e on every push and PR. On pushes to `main` it also publishes `dist/` to GitHub Pages.
+`.github/workflows/ci.yml` runs lint, format check, unit tests, build, and e2e on every push and PR. On pushes to `main` it also publishes `dist/` to GitHub Pages. For an urgent deploy, run it by hand on `main` (Actions → CI and deploy → Run workflow) with **skip e2e** ticked: lint, unit tests and the build still have to pass.
 
 One-time setup:
 

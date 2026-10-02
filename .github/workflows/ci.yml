@@ -5,6 +5,11 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      skip_e2e:
+        description: 'Deploy without the e2e suite (lint, unit tests and build still run)'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -30,7 +35,9 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: npx playwright install --with-deps chromium webkit
+        if: ${{ !inputs.skip_e2e }}
       - run: npm run e2e
+        if: ${{ !inputs.skip_e2e }}
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
@@ -38,13 +45,14 @@ jobs:
           path: test-results/
           retention-days: 7
       - uses: actions/upload-pages-artifact@v3
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         with:
           path: dist
 
   deploy:
-    # Publishes dist/ to GitHub Pages (HTTPS) after every green push to main.
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Publishes dist/ to GitHub Pages (HTTPS) after every green push to main, or a manual run
+    # on main (which can skip e2e, e.g. for an urgent deploy).
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     needs: check
     runs-on: ubuntu-latest
     permissions:
